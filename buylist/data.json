@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "sample-001",
+      "name": "Sample: Stitch Kitten plush",
+      "place": "Rocket USA online store",
+      "price": "US$24.99",
+      "notes": "This is a sample entry — send Claude a photo and it will be replaced with your real items.",
+      "image": "",
+      "status": "to-buy",
+      "added": "2026-07-04"
+    }
+  ],
+  "popupStores": [
+    {
+      "id": "popup-sample-001",
+      "name": "Sample: Artist Market Pop-up",
+      "location": "Huashan 1914 Creative Park, Taipei",
+      "start": "2026-07-10",
+      "end": "2026-07-20",
+      "notes": "Sample entry — tell Claude about a pop-up store and it will be recorded here.",
+      "image": ""
+    }
+  ]
+}

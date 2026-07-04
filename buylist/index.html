@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>My Buy List</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Avenir-Roman", "Avenir", -apple-system, "Helvetica Neue", sans-serif;
+    color: #464646;
+    background: #f7f5f2;
+    padding-bottom: 40px;
+  }
+  header {
+    background: #fff;
+    padding: 20px 16px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  h1 {
+    font-family: "Avenir-Heavy", "Avenir", sans-serif;
+    font-size: 26px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .tabs { display: flex; }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #999;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tab.active { color: #464646; border-bottom-color: #e8998d; }
+  .toolbar { padding: 12px 16px 0; max-width: 640px; margin: 0 auto; }
+  .search {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    color: #464646;
+  }
+  .filters { display: flex; gap: 8px; margin-top: 10px; }
+  .chip {
+    padding: 6px 14px;
+    font-size: 14px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip.active { background: #464646; color: #fff; border-color: #464646; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    margin-bottom: 16px;
+    display: flex;
+  }
+  .thumb {
+    width: 110px;
+    min-height: 110px;
+    flex-shrink: 0;
+    background: #eee;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    cursor: pointer;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-body { padding: 12px 14px; flex: 1; min-width: 0; }
+  .card-title { font-family: "Avenir-Heavy", "Avenir", sans-serif; font-size: 17px; margin-bottom: 4px; }
+  .card-line { font-size: 14px; color: #6d6d6d; margin-bottom: 3px; line-height: 1.45; }
+  .card-line .icon { margin-right: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-top: 6px;
+  }
+  .badge.to-buy { background: #fdecea; color: #c0392b; }
+  .badge.bought { background: #e8f6ee; color: #1e8e4e; }
+  .badge.now-open { background: #e8f6ee; color: #1e8e4e; }
+  .badge.upcoming { background: #fff4e0; color: #b26a00; }
+  .badge.ended { background: #eee; color: #888; }
+  .bought-toggle {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #1e8e4e;
+    background: none;
+    border: 1px solid #1e8e4e;
+    border-radius: 14px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .card.done { opacity: .55; }
+  .card.done .card-title { text-decoration: line-through; }
+  a.maplink { color: #2b6cb0; text-decoration: none; }
+  .empty { text-align: center; color: #999; padding: 60px 20px; font-size: 16px; line-height: 1.6; }
+  .count { text-align: center; font-size: 13px; color: #999; margin-bottom: 12px; }
+  /* image lightbox */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  #lightbox img { max-width: 95%; max-height: 95%; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛍️ My Buy List</h1>
+  <div class="tabs">
+    <div class="tab active" data-tab="items">🛒 Buy List</div>
+    <div class="tab" data-tab="popups">🏪 Pop-up Stores</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input class="search" id="search" type="search" placeholder="Search name, place…">
+  <div class="filters" id="filters">
+    <span class="chip active" data-filter="all">All</span>
+    <span class="chip" data-filter="to-buy">To buy</span>
+    <span class="chip" data-filter="bought">Bought</span>
+  </div>
+</div>
+
+<main id="content"><div class="empty">Loading…</div></main>
+
+<div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src="" alt=""></div>
+
+<script>
+let DATA = { items: [], popupStores: [] };
+let tab = 'items';
+let filter = 'all';
+let query = '';
+const localBought = new Set(JSON.parse(localStorage.getItem('buylist-bought') || '[]'));
+
+fetch('data.json?t=' + Date.now())
+  .then(r => r.json())
+  .then(d => { DATA = d; render(); })
+  .catch(() => { document.getElementById('content').innerHTML = '<div class="empty">Could not load data.json</div>'; });
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  tab = t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  document.getElementById('filters').style.display = tab === 'items' ? 'flex' : 'none';
+  render();
+}));
+
+document.getElementById('filters').addEventListener('click', e => {
+  if (!e.target.dataset.filter) return;
+  filter = e.target.dataset.filter;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === e.target));
+  render();
+});
+
+document.getElementById('search').addEventListener('input', e => { query = e.target.value.toLowerCase(); render(); });
+
+function isBought(item) { return item.status === 'bought' || localBought.has(item.id); }
+
+function toggleBought(id) {
+  if (localBought.has(id)) localBought.delete(id); else localBought.add(id);
+  localStorage.setItem('buylist-bought', JSON.stringify([...localBought]));
+  render();
+}
+
+function popupStatus(s) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (s.end && today > s.end) return ['ended', 'Ended'];
+  if (s.start && today < s.start) return ['upcoming', 'Upcoming'];
+  return ['now-open', 'Now open'];
+}
+
+function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function showImage(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+
+function thumbHtml(image, emoji) {
+  return image
+    ? `<div class="thumb" onclick="showImage('${esc(image)}')"><img src="${esc(image)}" alt=""></div>`
+    : `<div class="thumb">${emoji}</div>`;
+}
+
+function render() {
+  const el = document.getElementById('content');
+  if (tab === 'items') {
+    let list = DATA.items.filter(i =>
+      (i.name + ' ' + i.place + ' ' + (i.notes || '')).toLowerCase().includes(query));
+    if (filter === 'to-buy') list = list.filter(i => !isBought(i));
+    if (filter === 'bought') list = list.filter(i => isBought(i));
+    if (!list.length) {
+      el.innerHTML = '<div class="empty">Nothing here yet.<br>Send Claude a photo of something you want to buy!</div>';
+      return;
+    }
+    const remaining = DATA.items.filter(i => !isBought(i)).length;
+    el.innerHTML = `<div class="count">${remaining} item(s) left to buy</div>` + list.map(i => {
+      const bought = isBought(i);
+      return `<div class="card${bought ? ' done' : ''}">
+        ${thumbHtml(i.image, '🛒')}
+        <div class="card-body">
+          <div class="card-title">${esc(i.name)}</div>
+          ${i.place ? `<div class="card-line"><span class="icon">📍</span><a class="maplink" href="https://www.google.com/maps/search/${encodeURIComponent(i.place)}" target="_blank" rel="noopener">${esc(i.place)}</a></div>` : ''}
+          ${i.price ? `<div class="card-line"><span class="icon">💰</span>${esc(i.price)}</div>` : ''}
+          ${i.notes ? `<div class="card-line"><span class="icon">📝</span>${esc(i.notes)}</div>` : ''}
+          <span class="badge ${bought ? 'bought' : 'to-buy'}">${bought ? '✓ Bought' : 'To buy'}</span><br>
+          <button class="bought-toggle" onclick="toggleBought('${esc(i.id)}')">${bought ? 'Mark as not bought' : 'Mark as bought'}</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    const list = DATA.popupStores.filter(s =>
+      (s.name + ' ' + s.location + ' ' + (s.notes || '')).toLowerCase().includes(query));
+    if (!list.length) {
+      el.innerHTML = '<div class="empty">No pop-up stores recorded yet.<br>Tell Claude about one to add it!</div>';
+      return;
+    }
+    // now open & upcoming first, ended last
+    const rank = { 'now-open': 0, 'upcoming': 1, 'ended': 2 };
+    list.sort((a, b) => rank[popupStatus(a)[0]] - rank[popupStatus(b)[0]]);
+    el.innerHTML = list.map(s => {
+      const [cls, label] = popupStatus(s);
+      const dates = s.start || s.end ? `${s.start || '?'} → ${s.end || '?'}` : '';
+      return `<div class="card">
+        ${thumbHtml(s.image, '🏪')}
+        <div class="card-body">
+          <div class="card-title">${esc(s.name)}</div>
+          ${s.location ? `<div class="card-line"><span class="icon">📍</span><a class="maplink" href="https://www.google.com/maps/search/${encodeURIComponent(s.location)}" target="_blank" rel="noopener">${esc(s.location)}</a></div>` : ''}
+          ${dates ? `<div class="card-line"><span class="icon">📅</span>${dates}</div>` : ''}
+          ${s.notes ? `<div class="card-line"><span class="icon">📝</span>${esc(s.notes)}</div>` : ''}
+          <span class="badge ${cls}">${label}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+</script>
+</body>
+</html>
