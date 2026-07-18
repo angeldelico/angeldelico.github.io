@@ -321,11 +321,12 @@
   /* ===== shopping: per-card delete + empty thumb ===== */
   .card-del{
     position:absolute;top:10px;right:10px;z-index:3;
-    width:26px;height:26px;border:none;border-radius:50%;cursor:pointer;
-    background:rgba(18,48,73,.55);color:#fff;font-size:13px;line-height:1;
+    width:32px;height:32px;border:none;border-radius:50%;cursor:pointer;
+    background:rgba(18,48,73,.85);color:#fff;font-size:16px;line-height:1;font-weight:700;
     display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.4);
   }
-  .card-del.arm{background:#C0281C;width:auto;padding:0 10px;border-radius:13px;font-size:12px;font-weight:700}
+  .card-del:active{transform:scale(.9);background:#C0281C}
   .thumb.empty{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#EAF6F7,#D6EEF0)}
   .thumb.empty::after{display:none}
   .thumb-emoji{font-size:44px}
@@ -946,14 +947,13 @@
   }
 
   const shopPanel = document.getElementById('panel-shop');
-  let armedDelPerson = null, armedDelItem = null;
   shopPanel.addEventListener('click', e => {
     if(e.target.closest('#importBtn')){ importDefaults(); return; }
-    const dp = e.target.closest('[data-delperson]'); if(dp){ armDelPerson(dp); return; }
+    const dp = e.target.closest('[data-delperson]'); if(dp){ deletePersonClick(dp.dataset.delperson); return; }
     const chip = e.target.closest('[data-person]'); if(chip){ activePerson = chip.dataset.person; shopRender(); return; }
     if(e.target.closest('#addPerson')){ addPerson(); return; }
     const buy = e.target.closest('[data-buy]'); if(buy){ toggleBuy(buy.dataset.buy); return; }
-    const di = e.target.closest('[data-delitem]'); if(di){ armDelItem(di); return; }
+    const di = e.target.closest('[data-delitem]'); if(di){ deleteItemClick(di.dataset.delitem); return; }
   });
 
   async function toggleBuy(id){
@@ -977,17 +977,11 @@
     PEOPLE.push({ id:data.id, name:data.name, position:data.position, items:[] });
     activePerson = data.id; shopRender();
   }
-  function armDelPerson(el){
+  function deletePersonClick(id){
     if(PEOPLE.length <= 1){ toast('至少要保留一個人'); return; }
-    const id = el.dataset.delperson;
-    if(armedDelPerson !== id){
-      armedDelPerson = id; armedDelItem = null; shopRender();
-      const btn = document.querySelector('[data-delperson="'+id+'"]');
-      if(btn){ btn.textContent='確定?'; btn.style.width='auto'; btn.style.padding='0 6px'; btn.style.borderRadius='9px'; }
-      setTimeout(()=>{ if(armedDelPerson===id){ armedDelPerson=null; shopRender(); } }, 3000);
-      return;
-    }
-    armedDelPerson = null; deletePersonConfirmed(id);
+    const p = PEOPLE.find(x=>x.id===id); if(!p) return;
+    if(!window.confirm('刪除「' + p.name + '」和整份清單？')) return;
+    deletePersonConfirmed(id);
   }
   async function deletePersonConfirmed(id){
     if(!await ensurePass()){ shopRender(); return; }
@@ -997,15 +991,12 @@
     if(activePerson===id) activePerson = PEOPLE[0] ? PEOPLE[0].id : null;
     shopRender();
   }
-  function armDelItem(el){
-    const id = el.dataset.delitem;
-    if(armedDelItem !== id){
-      armedDelItem = id; armedDelPerson = null;
-      el.classList.add('arm'); el.textContent = '確定刪除?';
-      setTimeout(()=>{ if(armedDelItem===id){ armedDelItem=null; const b=document.querySelector('[data-delitem="'+id+'"]'); if(b){ b.classList.remove('arm'); b.textContent='✕'; } } }, 3000);
-      return;
-    }
-    armedDelItem = null; deleteItemConfirmed(id);
+  function deleteItemClick(id){
+    const cp = currentPerson(); if(!cp) return;
+    const it = cp.items.find(i=>i.id===id); if(!it) return;
+    const nm = (it.name||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    if(!window.confirm('確定刪除「' + nm + '」？')) return;
+    deleteItemConfirmed(id);
   }
   async function deleteItemConfirmed(id){
     if(!await ensurePass()){ shopRender(); return; }
