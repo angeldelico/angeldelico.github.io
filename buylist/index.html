@@ -218,19 +218,34 @@
     font-size:12.5px;line-height:1.75;color:var(--aqua-soft);
   }
   /* edit toolbar + controls */
-  .trip-toolbar{max-width:560px;margin:0 auto 4px;padding:0 16px;display:flex;gap:8px}
-  .edit-btn,.reset-btn{
+  .trip-toolbar{max-width:560px;margin:0 auto 4px;padding:0 16px;display:flex;gap:8px;justify-content:flex-end}
+  .reset-btn{
     border:none;cursor:pointer;font-family:inherit;font-weight:700;
     font-size:13px;letter-spacing:.05em;padding:9px 15px;border-radius:10px;
+    background:rgba(228,52,42,.16);color:#F3B4AF;
   }
-  .edit-btn{background:rgba(234,246,247,.14);color:var(--aqua-soft)}
-  .edit-btn.on{background:var(--gold);color:#2A2010}
-  .reset-btn{background:rgba(228,52,42,.16);color:#F3B4AF}
+  /* per-day edit button in the title bar */
+  .seg-edit{
+    margin-left:auto;flex:none;align-self:center;
+    border:none;cursor:pointer;font-family:inherit;font-weight:700;
+    font-size:12px;letter-spacing:.04em;padding:6px 12px;border-radius:999px;
+    background:rgba(234,246,247,.16);color:#fff;transition:background .2s;
+  }
+  .seg.editing .seg-edit{background:var(--gold);color:#2A2010}
+  /* drag handle */
+  .drag-handle{
+    display:none;flex:none;width:26px;height:46px;margin-left:-6px;
+    align-items:center;justify-content:center;cursor:grab;
+    color:#9DB2BD;font-size:18px;touch-action:none;user-select:none;
+  }
+  .seg.editing .drag-handle{display:flex}
+  .drag-handle:active{cursor:grabbing}
+  .spot.dragging{opacity:.6;background:#E3F0F2;border-radius:10px}
   .spot .ctrls{display:none;gap:4px;flex:none;margin-left:auto}
-  .editing .spot .ctrls{display:flex}
-  .editing .spot .name{pointer-events:none}
-  .editing .spot .sthumb{pointer-events:none}
-  .editing .spot .tag{display:none}
+  .seg.editing .spot .ctrls{display:flex}
+  .seg.editing .spot .name{pointer-events:none}
+  .seg.editing .spot .sthumb{pointer-events:none}
+  .seg.editing .spot .tag{display:none}
   .ctrl{
     width:30px;height:30px;border:none;border-radius:8px;cursor:pointer;
     font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;
@@ -240,7 +255,7 @@
   .ctrl:active{transform:scale(.9)}
   .ctrl:disabled{opacity:.3;cursor:default}
   .addspot{display:none;padding:6px 2px 2px}
-  .editing .addspot{display:block}
+  .seg.editing .addspot{display:block}
   .addspot-row{display:flex;gap:7px}
   .addspot input{
     flex:1;border:1px solid rgba(18,48,73,.2);border-radius:9px;
@@ -449,11 +464,10 @@
 
 <section class="panel" id="panel-trip">
 <div class="trip-toolbar">
-  <button id="editToggle" class="edit-btn">✏️ 編輯模式</button>
   <button id="resetTrip" class="reset-btn" hidden>↺ 重設行程</button>
 </div>
 <div class="trip" id="trip"></div>
-<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps（餐廳、商店多無圖庫，顯示 emoji）。✏️「編輯模式」可排序、刪除、新增地點，變更存在此裝置瀏覽器（換裝置或清快取會回預設）。</p>
+<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps（餐廳、商店多無圖庫，顯示 emoji）。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳左側 ⠿ 把手排序、✕ 刪除、底部新增地點。變更存在此裝置瀏覽器（換裝置或清快取會回預設）。</p>
 </section>
 
 <script>
@@ -535,6 +549,9 @@
   catch(e){ TRIP = structuredClone(DEFAULT_TRIP); }
   function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(TRIP)); } catch(e){} }
 
+  // which day cards are currently in edit mode (runtime only, not persisted)
+  const editingDays = new Set();
+
   const maps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -553,12 +570,11 @@
         const sub = sp.sub ? `<span style="display:block;font-size:11px;color:#7A8B94;font-weight:400;margin-top:2px">${esc(sp.sub)}</span>` : '';
         const wiki = sp.wiki ? ` data-wiki="${esc(sp.wiki)}"` : '';
         return `<div class="spot ${sp.skip?'skip':''}" data-si="${si}" data-pi="${pi}">
+          <span class="drag-handle" title="拖曳排序">⠿</span>
           <a class="sthumb" href="${maps(sp.q)}"${wiki} target="_blank" rel="noopener"><span class="ph">${sp.emoji||'📍'}</span></a>
           <a class="name" href="${maps(sp.q)}" target="_blank" rel="noopener">${esc(sp.name)}${sub}</a>
           ${sp.tag||''}
           <span class="ctrls">
-            <button class="ctrl up" ${pi===0?'disabled':''} title="上移">▲</button>
-            <button class="ctrl down" ${pi===seg.spots.length-1?'disabled':''} title="下移">▼</button>
             <button class="ctrl del" title="刪除">✕</button>
           </span>
         </div>`;
@@ -568,14 +584,20 @@
         <button class="add-go" data-addgo="${si}">＋ 加入</button>
       </div></div>`;
       const hotelLine = (seg.hotel||seg.hotelq||seg.src) ? `<div class="seg-hotel">${hotel}</div>` : '';
-      return `<div class="seg">
-        <div class="seg-head"><span class="date">${esc(seg.date)}</span><span class="place">${esc(seg.place)}</span></div>
+      const editing = editingDays.has(si);
+      return `<div class="seg${editing?' editing':''}">
+        <div class="seg-head">
+          <span class="date">${esc(seg.date)}</span><span class="place">${esc(seg.place)}</span>
+          <button class="seg-edit" data-editday="${si}">${editing?'✓ 完成':'✏️ 編輯'}</button>
+        </div>
         ${hotelLine}
         ${strip}
         <div class="spots">${spots}${add}</div>
       </div>`;
     }).join('');
     loadThumbs(root);
+    const rb = document.getElementById('resetTrip');
+    if(rb) rb.hidden = editingDays.size === 0;
   }
 
   // ---------- Wikipedia thumbnails (reusable) ----------
@@ -621,17 +643,21 @@
   tripEl.addEventListener('click', e => {
     const chip = e.target.closest('.buy-chip');
     if(chip){ jumpToItem(chip.dataset.item); return; }
+    // toggle a single day's edit mode from its title-bar button
+    const eb = e.target.closest('[data-editday]');
+    if(eb){
+      const si = +eb.dataset.editday;
+      if(editingDays.has(si)) editingDays.delete(si); else editingDays.add(si);
+      render();
+      return;
+    }
     const spot = e.target.closest('.spot');
-    if(e.target.closest('.ctrl') && spot){
+    if(e.target.closest('.ctrl.del') && spot){
       const si = +spot.dataset.si, pi = +spot.dataset.pi, arr = TRIP[si].spots;
-      if(e.target.closest('.up') && pi>0){ [arr[pi-1],arr[pi]]=[arr[pi],arr[pi-1]]; }
-      else if(e.target.closest('.down') && pi<arr.length-1){ [arr[pi+1],arr[pi]]=[arr[pi],arr[pi+1]]; }
-      else if(e.target.closest('.del')){
-        lastDeleted = { si, pi, spot: arr[pi] };
-        arr.splice(pi,1);
-        showUndo(lastDeleted.spot.name);
-      }
-      save(); render(); keepEditing();
+      lastDeleted = { si, pi, spot: arr[pi] };
+      arr.splice(pi,1);
+      showUndo(lastDeleted.spot.name);
+      save(); render();
     }
   });
   tripEl.addEventListener('click', e => {
@@ -641,7 +667,7 @@
     const input = tripEl.querySelector('input[data-add="'+si+'"]');
     const name = (input.value||'').trim(); if(!name) return;
     TRIP[si].spots.push({name, q:name, wiki:name, emoji:'📍'});
-    save(); render(); keepEditing();
+    save(); render();
   });
   tripEl.addEventListener('keydown', e => {
     if(e.key==='Enter' && e.target.matches('input[data-add]')){
@@ -650,17 +676,51 @@
     }
   });
 
-  function keepEditing(){ if(document.body.classList.contains('editing-on')) tripEl.classList.add('editing'); }
-
-  const editToggle = document.getElementById('editToggle');
-  const resetBtn = document.getElementById('resetTrip');
-  editToggle.addEventListener('click', () => {
-    const on = tripEl.classList.toggle('editing');
-    document.body.classList.toggle('editing-on', on);
-    editToggle.classList.toggle('on', on);
-    editToggle.textContent = on ? '✓ 完成編輯' : '✏️ 編輯模式';
-    resetBtn.hidden = !on;
+  // ---------- drag & drop reorder (touch + mouse via pointer events) ----------
+  let drag = null;
+  function onDragMove(e){
+    if(!drag) return;
+    e.preventDefault();
+    const y = e.clientY;
+    const others = [...drag.list.querySelectorAll('.spot')];
+    let ref = null;
+    for(const s of others){
+      if(s === drag.spot) continue;
+      const r = s.getBoundingClientRect();
+      if(y < r.top + r.height/2){ ref = s; break; }
+    }
+    drag.list.insertBefore(drag.spot, ref || drag.list.querySelector('.addspot'));
+  }
+  function onDragEnd(){
+    if(!drag) return;
+    drag.spot.classList.remove('dragging');
+    const si = drag.si;
+    const order = [...drag.list.querySelectorAll('.spot')].map(s => +s.dataset.pi);
+    if(order.some((pi,i) => pi !== i)){
+      const old = TRIP[si].spots;
+      TRIP[si].spots = order.map(pi => old[pi]);
+      save();
+    }
+    drag = null;
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+    document.removeEventListener('pointercancel', onDragEnd);
+    render();
+  }
+  tripEl.addEventListener('pointerdown', e => {
+    const handle = e.target.closest('.drag-handle');
+    if(!handle) return;
+    const spot = handle.closest('.spot');
+    if(!spot) return;
+    e.preventDefault();
+    drag = { spot, list: spot.closest('.spots'), si: +spot.dataset.si };
+    spot.classList.add('dragging');
+    document.addEventListener('pointermove', onDragMove, {passive:false});
+    document.addEventListener('pointerup', onDragEnd);
+    document.addEventListener('pointercancel', onDragEnd);
   });
+
+  const resetBtn = document.getElementById('resetTrip');
   let resetArmed = false, resetTimer = null;
   resetBtn.addEventListener('click', () => {
     if(!resetArmed){
@@ -670,7 +730,7 @@
       return;
     }
     clearTimeout(resetTimer); resetArmed = false; resetBtn.textContent = '↺ 重設行程';
-    TRIP = structuredClone(DEFAULT_TRIP); save(); render(); keepEditing();
+    TRIP = structuredClone(DEFAULT_TRIP); editingDays.clear(); save(); render();
   });
 
   // ---------- tabs ----------
