@@ -351,6 +351,38 @@
     box-shadow:0 12px 34px rgba(0,0,0,.5);transition:transform .28s ease;
   }
   .toast.show{transform:translate(-50%,0)}
+  /* ===== link parse rows + preview ===== */
+  .ai-linkrow,.modal-linkrow{display:flex;gap:8px}
+  .ai-linkrow input,.modal-linkrow input{flex:1;min-width:0}
+  .ai-linkrow button,.modal-linkrow button{
+    flex:none;border:none;background:var(--deep);color:#fff;border-radius:10px;
+    padding:0 14px;font-weight:700;font-family:inherit;cursor:pointer;font-size:14px;
+  }
+  .link-preview{display:none;gap:10px;align-items:center;margin-top:4px;font-size:12px;color:#5A7484}
+  .link-preview.show{display:flex}
+  .link-preview img{width:44px;height:44px;object-fit:cover;border-radius:8px;flex:none;background:#dfeaec}
+  /* ===== modal (add / edit trip location) ===== */
+  .modal-overlay{position:fixed;inset:0;background:rgba(6,16,26,.72);z-index:300;display:flex;align-items:flex-end;justify-content:center}
+  .modal-overlay[hidden]{display:none}
+  .modal{
+    background:var(--foam);color:var(--ink);width:100%;max-width:560px;max-height:92vh;overflow:auto;
+    border-radius:18px 18px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 40px rgba(0,0,0,.45);
+  }
+  @media(min-width:600px){ .modal-overlay{align-items:center} .modal{border-radius:18px} }
+  .modal h3{font-family:'Shippori Mincho',serif;font-size:19px;margin-bottom:14px}
+  .modal label{display:block;font-size:12px;font-weight:700;color:#5A7484;margin:12px 0 5px;letter-spacing:.02em}
+  .modal input{width:100%;border:1px solid rgba(18,48,73,.2);border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;color:var(--ink)}
+  .modal input:focus{outline:none;border-color:var(--deep)}
+  .emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin:4px 0 6px}
+  .emoji-grid button{border:1px solid rgba(18,48,73,.14);background:#fff;border-radius:10px;padding:7px 0;font-size:20px;line-height:1;cursor:pointer}
+  .emoji-grid button.sel{border-color:var(--deep);background:#E3F0F2;box-shadow:0 0 0 2px rgba(18,48,73,.18)}
+  .emoji-custom{margin-top:2px}
+  .modal-actions{display:flex;gap:10px;margin-top:20px}
+  .modal-actions button{flex:1;border:none;border-radius:11px;padding:13px;font-weight:700;font-family:inherit;font-size:15px;cursor:pointer}
+  #spotSave{background:var(--deep);color:#fff}
+  #spotCancel{background:#E7EDEF;color:var(--deep)}
+  .ctrl.edit{background:#E7EFF2;color:var(--deep)}
 </style>
 </head>
 <body>
@@ -390,6 +422,11 @@
 <div class="add-item-wrap">
   <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
   <div class="add-item-form" id="addItemForm" hidden>
+    <div class="ai-linkrow">
+      <input type="url" placeholder="貼上商品連結自動帶入（可選）" data-f="url">
+      <button type="button" class="ai-parse" id="addItemParse">🔗 解析</button>
+    </div>
+    <div class="link-preview" id="aiPreview"><img id="aiPreviewImg" alt=""><span id="aiPreviewText"></span></div>
     <input type="text" placeholder="物品名稱 *" data-f="name">
     <input type="text" placeholder="在哪買（店名／地點）" data-f="place">
     <input type="text" placeholder="價格（可留空，例：¥500 / NT$100）" data-f="price">
@@ -411,8 +448,33 @@
 
 <section class="panel" id="panel-trip">
 <div class="trip" id="trip"></div>
-<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳左側 ⠿ 把手排序、✕ 刪除、底部新增地點。編輯需先用右上角 🔒 解鎖（輸入密碼），所有變更即時存到資料庫、跨裝置同步。</p>
+<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳 ⠿ 排序、✎ 開啟表單改名稱／圖示、✕ 刪除、底部「＋ 新增地點」開表單。表單可貼連結自動帶入名稱、選 emoji 圖示。編輯需先用右上角 🔒 解鎖，所有變更即時存到資料庫、跨裝置同步。</p>
 </section>
+
+<div class="modal-overlay" id="spotModal" hidden>
+  <div class="modal">
+    <h3 id="spotModalTitle">新增地點</h3>
+    <div class="modal-linkrow">
+      <input type="url" id="spotUrl" placeholder="貼上連結自動帶入名稱（可選）">
+      <button type="button" id="spotUrlGo">🔗 解析</button>
+    </div>
+    <label>名稱 *</label>
+    <input type="text" id="spotName" placeholder="例：金太郎迴轉壽司">
+    <label>Google Maps 查詢（留空則用名稱）</label>
+    <input type="text" id="spotQ" placeholder="例：金太郎 回転寿司 東浦店">
+    <label>圖示 icon</label>
+    <div class="emoji-grid" id="emojiGrid"></div>
+    <input type="text" id="spotEmoji" class="emoji-custom" placeholder="或直接貼上任一 emoji">
+    <label>備註（顯示在名稱下方，可選）</label>
+    <input type="text" id="spotSub" placeholder="例：扭蛋主場・兩款一次收">
+    <label>Wikipedia 標題（有的話會自動抓縮圖，可選）</label>
+    <input type="text" id="spotWiki" placeholder="例：姫路城">
+    <div class="modal-actions">
+      <button type="button" id="spotSave">加入</button>
+      <button type="button" id="spotCancel">取消</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -678,12 +740,11 @@
           <a class="sthumb" href="${maps(sp.q)}"${wiki} target="_blank" rel="noopener"><span class="ph">${sp.emoji||'📍'}</span></a>
           <a class="name" href="${maps(sp.q)}" target="_blank" rel="noopener">${esc(sp.name)}${sub}</a>
           ${sp.tag||''}
-          <span class="ctrls"><button class="ctrl del" title="刪除">✕</button></span>
+          <span class="ctrls"><button class="ctrl edit" title="編輯">✎</button><button class="ctrl del" title="刪除">✕</button></span>
         </div>`;
       }).join('');
       const add = `<div class="addspot"><div class="addspot-row">
-        <input type="text" placeholder="新增地點名稱…" data-add="${seg.id}">
-        <button class="add-go" data-addgo="${seg.id}">＋ 加入</button>
+        <button class="add-go" data-addday="${seg.id}" style="width:100%">＋ 新增地點（開啟表單）</button>
       </div></div>`;
       const hotelLine = (seg.hotel||seg.hotelq||seg.src) ? `<div class="seg-hotel">${hotel}</div>` : '';
       const editing = editingDays.has(seg.id);
@@ -734,27 +795,29 @@
     if(chip){ jumpToItem(chip.dataset.item); return; }
     const eb = e.target.closest('[data-editday]');
     if(eb){ const id = eb.dataset.editday; if(editingDays.has(id)) editingDays.delete(id); else editingDays.add(id); render(); return; }
+    const editBtn = e.target.closest('.ctrl.edit');
+    if(editBtn){ const s = editBtn.closest('.spot'); if(s) openSpotModal(s.dataset.day, s.dataset.spot); return; }
     const delBtn = e.target.closest('.ctrl.del');
     if(delBtn){ const spot = delBtn.closest('.spot'); if(spot) deleteSpot(spot.dataset.day, spot.dataset.spot); return; }
-    const go = e.target.closest('[data-addgo]');
-    if(go){ addSpot(go.dataset.addgo); return; }
-  });
-  tripEl.addEventListener('keydown', e => {
-    if(e.key==='Enter' && e.target.matches('input[data-add]')){
-      const id = e.target.dataset.add;
-      const btn = tripEl.querySelector('[data-addgo="'+id+'"]'); if(btn) btn.click();
-    }
+    const addBtn = e.target.closest('[data-addday]');
+    if(addBtn){ openSpotModal(addBtn.dataset.addday, null); return; }
   });
 
-  async function addSpot(dayId){
-    const day = TRIP.find(d=>d.id===dayId); if(!day) return;
-    const input = tripEl.querySelector('input[data-add="'+dayId+'"]');
-    const name = (input && input.value || '').trim(); if(!name) return;
-    if(!await ensurePass()) return;
+  async function addSpot(dayId, spot){
+    const day = TRIP.find(d=>d.id===dayId); if(!day) return false;
+    if(!await ensurePass()) return false;
     const position = day.spots.length ? Math.max(...day.spots.map(s=>s.position||0))+1 : 0;
-    const { data, error } = await sb.from('trip_spots').insert({ day_id:dayId, name, q:name, wiki:name, emoji:'📍', position }).select().single();
-    if(error) return handleWriteError(error);
-    day.spots.push(mapSpot(data)); render();
+    const row = { day_id:dayId, name:spot.name, q:spot.q||spot.name, wiki:spot.wiki||'', emoji:spot.emoji||'📍', sub:spot.sub||'', tag:spot.tag||'', position };
+    const { data, error } = await sb.from('trip_spots').insert(row).select().single();
+    if(error){ handleWriteError(error); return false; }
+    day.spots.push(mapSpot(data)); render(); return true;
+  }
+  async function updateSpot(spotId, patch){
+    if(!await ensurePass()) return false;
+    const { error } = await sb.from('trip_spots').update(patch).eq('id', spotId);
+    if(error){ handleWriteError(error); return false; }
+    for(const d of TRIP){ const s = d.spots.find(x=>x.id===spotId); if(s){ Object.assign(s, patch); break; } }
+    render(); return true;
   }
   async function deleteSpot(dayId, spotId){
     const day = TRIP.find(d=>d.id===dayId); if(!day) return;
@@ -958,15 +1021,39 @@
   document.getElementById('addItemToggle').addEventListener('click', () => { addItemForm.hidden = !addItemForm.hidden; if(!addItemForm.hidden) fld('name').focus(); });
   document.getElementById('addItemCancel').addEventListener('click', () => { clearItemForm(); addItemForm.hidden = true; });
   document.getElementById('addItemSave').addEventListener('click', saveNewItem);
-  addItemForm.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); saveNewItem(); } });
-  function clearItemForm(){ ['name','place','price','notes'].forEach(f => fld(f).value = ''); }
+  document.getElementById('addItemParse').addEventListener('click', parseItemLink);
+  addItemForm.addEventListener('keydown', e => {
+    if(e.key!=='Enter') return; e.preventDefault();
+    if(e.target.matches('[data-f="url"]')) parseItemLink(); else saveNewItem();
+  });
+  async function parseItemLink(){
+    const url = (fld('url').value||'').trim(); if(!url){ fld('url').focus(); return; }
+    toast('解析中…');
+    try{
+      const d = await parseLink(url);
+      if(d.title && !fld('name').value.trim()) fld('name').value = d.title;
+      if(d.publisher && !fld('place').value.trim()) fld('place').value = d.publisher;
+      addItemForm.dataset.image = d.image || '';
+      addItemForm.dataset.link  = d.url || url;
+      const pv = document.getElementById('aiPreview'), im = document.getElementById('aiPreviewImg');
+      if(d.image){ im.src = d.image; im.style.display = ''; } else { im.style.display = 'none'; }
+      document.getElementById('aiPreviewText').textContent = d.title ? (d.title + (d.publisher?(' · '+d.publisher):'')) : '已取得連結';
+      pv.classList.add('show');
+      toast('已帶入，補上價格後即可加入');
+    }catch(e){ toast('解析失敗，請手動輸入'); }
+  }
+  function clearItemForm(){
+    ['name','place','price','notes','url'].forEach(f => { const el = fld(f); if(el) el.value = ''; });
+    delete addItemForm.dataset.image; delete addItemForm.dataset.link;
+    const pv = document.getElementById('aiPreview'); if(pv) pv.classList.remove('show');
+  }
   async function saveNewItem(){
     const cp = currentPerson(); if(!cp){ toast('請先新增一個人'); return; }
     const name = (fld('name').value||'').trim(); if(!name){ fld('name').focus(); return; }
     if(!await ensurePass()) return;
     const place = (fld('place').value||'').trim(), price = (fld('price').value||'').trim(), notes = (fld('notes').value||'').trim();
     const position = cp.items.length ? Math.max(...cp.items.map(i=>i.position||0))+1 : 0;
-    const row = { person_id: cp.id, name: esc(name), price: price?esc(price):'', where_rows: place?[esc(place)]:[], meta: notes?esc(notes):'', bought:false, position };
+    const row = { person_id: cp.id, name: esc(name), price: price?esc(price):'', where_rows: place?[esc(place)]:[], meta: notes?esc(notes):'', image: addItemForm.dataset.image||'', link: addItemForm.dataset.link||'', bought:false, position };
     const { data, error } = await sb.from('items').insert(row).select().single();
     if(error) return handleWriteError(error);
     cp.items.push(mapItem(data)); clearItemForm(); addItemForm.hidden = true; shopRender();
@@ -1009,6 +1096,80 @@
     }
     toast('匯入完成！'); await reload();
   }
+
+  // ---------- link parsing (microlink.io — free, CORS-friendly) ----------
+  async function parseLink(url){
+    const api = 'https://api.microlink.io/?url=' + encodeURIComponent(url);
+    const r = await fetch(api); if(!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json(); if(j.status !== 'success') throw new Error('parse failed');
+    const d = j.data || {};
+    return {
+      title: d.title || '',
+      image: ((d.image && d.image.url) || (d.logo && d.logo.url) || '').replace(/"/g,'%22'),
+      url: (d.url || url).replace(/"/g,'%22'),
+      description: d.description || '',
+      publisher: d.publisher || ''
+    };
+  }
+
+  // ---------- trip location modal (add / edit, with icon picker) ----------
+  const EMOJIS = ['📍','🍽️','☕','🍜','🍣','🍔','🍡','🍮','🍰','🍺','🍎','🛍️','🎁','🏬','🏪','💊','👓','🎮','🎰','🎡','🎠','🏯','⛩️','🏛️','🗼','🌉','🌸','🌲','🏖️','⛰️','🌊','🌃','🚃','✈️','⛴️','🚗','🏨','🐬','🎀','🎢'];
+  let spotModalCtx = null, spotEmoji = '📍';
+  function buildEmojiGrid(){
+    const g = document.getElementById('emojiGrid'); if(!g) return;
+    g.innerHTML = [...new Set(EMOJIS)].map(e=>`<button type="button" data-emoji="${e}">${e}</button>`).join('');
+  }
+  function selectEmoji(e){
+    spotEmoji = e;
+    document.querySelectorAll('#emojiGrid button').forEach(b=>b.classList.toggle('sel', b.dataset.emoji===e));
+    const ce = document.getElementById('spotEmoji'); if(ce) ce.value = '';
+  }
+  function openSpotModal(dayId, spotId){
+    const day = TRIP.find(d=>d.id===dayId); if(!day) return;
+    const spot = spotId ? day.spots.find(s=>s.id===spotId) : null;
+    spotModalCtx = { dayId, spotId: spotId||null };
+    document.getElementById('spotModalTitle').textContent = spot ? '編輯地點' : '新增地點';
+    document.getElementById('spotSave').textContent = spot ? '儲存' : '加入';
+    document.getElementById('spotName').value = spot ? spot.name : '';
+    document.getElementById('spotQ').value    = spot ? (spot.q||'') : '';
+    document.getElementById('spotSub').value  = spot ? (spot.sub||'') : '';
+    document.getElementById('spotWiki').value = spot ? (spot.wiki||'') : '';
+    document.getElementById('spotUrl').value  = '';
+    document.getElementById('spotEmoji').value = '';
+    selectEmoji(spot ? (spot.emoji||'📍') : '📍');
+    document.getElementById('spotModal').hidden = false;
+    setTimeout(()=>document.getElementById('spotName').focus(), 60);
+  }
+  function closeSpotModal(){ const m = document.getElementById('spotModal'); if(m) m.hidden = true; spotModalCtx = null; }
+  async function saveSpotModal(){
+    if(!spotModalCtx) return;
+    const name = (document.getElementById('spotName').value||'').trim();
+    if(!name){ document.getElementById('spotName').focus(); return; }
+    const custom = (document.getElementById('spotEmoji').value||'').trim();
+    const emoji = custom || spotEmoji || '📍';
+    const q = (document.getElementById('spotQ').value||'').trim() || name;
+    const sub = (document.getElementById('spotSub').value||'').trim();
+    const wiki = (document.getElementById('spotWiki').value||'').trim();
+    const payload = { name, q, wiki, emoji, sub };
+    const ok = spotModalCtx.spotId ? await updateSpot(spotModalCtx.spotId, payload) : await addSpot(spotModalCtx.dayId, payload);
+    if(ok !== false) closeSpotModal();
+  }
+  async function parseSpotLink(){
+    const url = (document.getElementById('spotUrl').value||'').trim(); if(!url) return;
+    toast('解析中…');
+    try{
+      const d = await parseLink(url);
+      if(d.title){ document.getElementById('spotName').value = d.title; const qEl = document.getElementById('spotQ'); if(!qEl.value.trim()) qEl.value = d.title; }
+      toast('已帶入名稱');
+    }catch(e){ toast('解析失敗，請手動輸入'); }
+  }
+  document.getElementById('spotSave').addEventListener('click', saveSpotModal);
+  document.getElementById('spotCancel').addEventListener('click', closeSpotModal);
+  document.getElementById('spotUrlGo').addEventListener('click', parseSpotLink);
+  document.getElementById('spotModal').addEventListener('click', e => { if(e.target.id === 'spotModal') closeSpotModal(); });
+  document.getElementById('emojiGrid').addEventListener('click', e => { const b = e.target.closest('[data-emoji]'); if(b) selectEmoji(b.dataset.emoji); });
+  document.getElementById('spotEmoji').addEventListener('input', e => { const v = e.target.value.trim(); if(v){ spotEmoji = v; document.querySelectorAll('#emojiGrid button').forEach(b=>b.classList.remove('sel')); } });
+  buildEmojiGrid();
 
   // ---------- top controls ----------
   document.getElementById('refreshBtn').addEventListener('click', () => { toast('同步中…'); reload(); });
