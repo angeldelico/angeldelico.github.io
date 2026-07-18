@@ -278,6 +278,64 @@
     border:none;background:var(--aqua);color:#082027;font-weight:700;
     border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;flex:none;
   }
+  /* ===== shopping: people selector ===== */
+  .people-bar{max-width:560px;margin:0 auto;padding:16px 16px 0}
+  .people{display:flex;flex-wrap:wrap;gap:8px}
+  .person-chip{
+    position:relative;border:1px solid rgba(234,246,247,.28);
+    background:rgba(234,246,247,.08);color:var(--aqua-soft);
+    font-family:inherit;font-weight:700;font-size:14px;letter-spacing:.03em;
+    padding:8px 14px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:8px;
+  }
+  .person-chip.active{background:var(--foam);color:var(--deep);border-color:var(--foam)}
+  .person-chip .pdel{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:17px;height:17px;border-radius:50%;font-size:10px;
+    background:rgba(0,0,0,.14);color:inherit;
+  }
+  .person-chip.active .pdel{background:rgba(18,48,73,.16)}
+  .person-add{
+    border:1px dashed rgba(234,246,247,.42);background:transparent;color:var(--aqua-soft);
+    font-family:inherit;font-weight:700;font-size:14px;padding:8px 14px;border-radius:999px;cursor:pointer;
+  }
+  /* ===== shopping: add item ===== */
+  .add-item-wrap{max-width:560px;margin:8px auto 0;padding:0 16px}
+  .add-item-toggle{
+    width:100%;border:1.5px dashed rgba(234,246,247,.4);background:rgba(234,246,247,.06);
+    color:var(--aqua-soft);font-family:inherit;font-weight:700;font-size:15px;
+    padding:14px;border-radius:14px;cursor:pointer;
+  }
+  .add-item-form{
+    margin-top:10px;background:var(--foam);border-radius:14px;padding:14px;display:grid;gap:9px;
+    box-shadow:0 10px 30px rgba(4,14,24,.4);
+  }
+  .add-item-form input{
+    border:1px solid rgba(18,48,73,.2);border-radius:10px;padding:11px 12px;
+    font-size:15px;font-family:inherit;color:var(--ink);
+  }
+  .add-item-form input:focus{outline:none;border-color:var(--deep)}
+  .add-item-actions{display:flex;gap:9px;margin-top:2px}
+  .ai-save,.ai-cancel{
+    flex:1;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;
+    font-size:14px;cursor:pointer;
+  }
+  .ai-save{background:var(--deep);color:#fff}
+  .ai-cancel{background:#E7EDEF;color:var(--deep)}
+  .empty-shop{
+    max-width:560px;margin:0 auto;padding:44px 24px;text-align:center;
+    color:var(--aqua-soft);font-size:15px;line-height:1.7;
+  }
+  /* ===== shopping: per-card delete + empty thumb ===== */
+  .card-del{
+    position:absolute;top:10px;right:10px;z-index:3;
+    width:26px;height:26px;border:none;border-radius:50%;cursor:pointer;
+    background:rgba(18,48,73,.55);color:#fff;font-size:13px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .card-del.arm{background:#C0281C;width:auto;padding:0 10px;border-radius:13px;font-size:12px;font-weight:700}
+  .thumb.empty{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#EAF6F7,#D6EEF0)}
+  .thumb.empty::after{display:none}
+  .thumb-emoji{font-size:44px}
 </style>
 </head>
 <body>
@@ -296,163 +354,27 @@
 </div>
 
 <section class="panel active" id="panel-shop">
+<div class="people-bar">
+  <div class="people" id="people"></div>
+</div>
+
 <p class="progress" id="progress">已購 0 / 6</p>
 
-<main>
+<main id="shop-list"></main>
 
-  <!-- Item 1 -->
-  <article class="card" id="item1">
-    <div class="thumb">
-      <span class="badge general">一般流通・唱片行可買</span>
-      <img src="https://www.jp.square-enix.com/music/lineup/assets/img/248b97e4e999cac001444a85ad1da3bfdfb0b7ea.jpg"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="FINAL FANTASY X LP Vinyl Set -Eternal Calm- 商品圖：透明海色雙黑膠與野村哲也繪封面">
+<div class="add-item-wrap">
+  <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
+  <div class="add-item-form" id="addItemForm" hidden>
+    <input type="text" placeholder="物品名稱 *" data-f="name">
+    <input type="text" placeholder="在哪買（店名／地點）" data-f="place">
+    <input type="text" placeholder="價格（可留空，例：¥500 / NT$100）" data-f="price">
+    <input type="text" placeholder="備註（可留空）" data-f="notes">
+    <div class="add-item-actions">
+      <button class="ai-save" id="addItemSave">加入清單</button>
+      <button class="ai-cancel" id="addItemCancel">取消</button>
     </div>
-    <div class="body">
-      <h2 class="name">FINAL FANTASY X<br>LP Vinyl Set -Eternal Calm-</h2>
-      <p class="price"><b>¥9,350</b><span class="twd">≈ NT$1,870</span><span>含稅（¥8,500+稅）</span></p>
-      <p class="meta">2LP 黑膠｜20 首精選曲｜野村哲也 25 週年新繪封面｜附全 OST MP3 下載碼｜品番 SQEX-11235-6</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span><b>SQUARE ENIX POP UP STORE 大丸心齋橋店</b>（本館9F 活動空間）— 指定購買點</span></div>
-        <div class="row"><span class="dot">◆</span><span>備案：大阪 Tower Records（梅田NU茶屋町）等一般唱片行</span></div>
-        <div class="row"><span class="dot">◆</span><span>線上：Square Enix e-STORE、CD Japan、Amazon.co.jp</span></div>
-      </div>
-      <div class="warn">✅ POP UP 檔期 7/3～8/30，行程期間營業中。買這張（¥9,350）就達到 ¥6,600 門檻，可拿隨機橡膠杯墊 1 枚（全8種，送完為止）。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item1">標記為已購 ✓</button>
-        <a class="link-btn" href="https://www.jp.square-enix.com/music/en/lineup/item/SQEX-11235-6.html" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-
-  <!-- Item 2 -->
-  <article class="card" id="item2">
-    <div class="thumb">
-      <span class="badge general">轉蛋・全國鋪貨</span>
-      <img src="https://bushiroad-store.com/cdn/shop/files/THEBOX_BushiroadTHEBOXSkaterJOHN___ari_pack_800x.jpg?v=1773824965"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="Skater JOHN フィギュアキーホルダー 商品圖">
-    </div>
-    <div class="body">
-      <h2 class="name">Skater JOHN<br>フィギュアキーホルダー（轉蛋）</h2>
-      <p class="price"><b>¥500</b><span class="twd">≈ NT$100</span><span>／轉・全5種（集齊約¥2,500／NT$500）</span></p>
-      <p class="meta">Bushiroad Creative（ブシカプ）｜約50mm 附球鏈｜Flying・Cool・Relax・Let's Go!・Hip Hop John｜2026年5月發售</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span>大阪大型扭蛋店：<b>ガシャポンのデパート</b>（難波等）、<b>#C-pla</b>、Yodobashi 梅田扭蛋區——機台位置不固定，看到就轉</span></div>
-        <div class="row"><span class="dot">◆</span><span>東京専門店 <b>SKATER JOHN Square</b>（東小金井）有補貨，但在東京</span></div>
-      </div>
-      <div class="warn">💡 不想賭運氣的話：官方 7/31 推出 BUSHIROAD THE BOX 盒裝版（1盒6包保證集齊全5種，每包¥660）——就在你回程隔天發售，可線上預購寄台灣代購或下次帶。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item2">標記為已購 ✓</button>
-        <a class="link-btn" href="https://bushiroad-store.com/products/2000284828848" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-  <!-- Item 3 -->
-  <article class="card" id="item3">
-    <div class="thumb">
-      <span class="badge general">轉蛋・全國鋪貨</span>
-      <img src="https://bandai-a.akamaihd.net/bc/img/model/xl/1000251559_1.jpg"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="ドラゴンクエスト まちぼうけ～しかし たすけは こなかった～ 商品圖：流淚的史萊姆等5款怪物">
-    </div>
-    <div class="body">
-      <h2 class="name">勇者鬥惡龍 まちぼうけ<br>～但是都沒有人來幫忙～</h2>
-      <p class="price"><b>¥400</b><span class="twd">≈ NT$80</span><span>／轉・全5種（集齊約¥2,000／NT$400）</span></p>
-      <p class="meta">BANDAI ガシャポン｜史萊姆・木乃伊男・泥手・徬徨鎧甲・麻痺水母｜2026年6月第3週發售</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span>全國扭蛋機鋪貨——大阪同樣去<b>ガシャポンのデパート</b>（難波）、<b>#C-pla</b>、Yodobashi 梅田找</span></div>
-        <div class="row"><span class="dot">◆</span><span>精準找機台：官方「<b>ガシャポンどこ？</b>」查詢有貨店舖（下方官方頁面內建）</span></div>
-      </div>
-      <div class="warn">⚠️ 這款超熱門，發售後多家店秒空、靠補貨輪流上架。到大阪先用官方查詢確認機台，看到就轉——跟 Skater John 可以排同一趟扭蛋行程。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item3">標記為已購 ✓</button>
-        <a class="link-btn" href="https://gashapon.jp/products/detail.php?jan_code=4582769979552000" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-  <!-- Item 4 -->
-  <article class="card" id="item4">
-    <div class="thumb">
-      <span class="badge limited">數量限定・易缺貨</span>
-      <img src="https://jp.rohto.com/-/media/rohto/products/zi/dragonquest/package_zi_b.png"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="ロートジー キングスライム型目薬 商品圖">
-    </div>
-    <div class="body">
-      <h2 class="name">ロートジー<br>キングスライム型目薬</h2>
-      <p class="price"><b>¥715～935</b><span class="twd">≈ NT$143～187</span><span>含稅（依款式）</span></p>
-      <p class="meta">DQ 40 週年聯名第3彈｜王冠瓶身16mL大容量｜第2類醫藥品｜三款：ロートジーb ¥715／コンタクトb ¥825／プロd ¥935｜2026/6/10發售</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span>全國藥妝店：<b>松本清 マツキヨ</b>、<b>Sundrug</b>、<b>大國藥妝</b>、<b>KOKUMIN</b>——大阪心齋橋筋、道頓堀一帶密集</span></div>
-        <div class="row"><span class="dot">◆</span><span>線上：Amazon.co.jp、樂天、DMM</span></div>
-      </div>
-      <div class="warn">⚠️ 數量限定商品，6/10 發售當天就有店家秒空。你 7/19 才到，藥妝店現貨機率偏低——看到就直接拿，別想說晚點再買。想保險就行前上 Amazon.co.jp 下單寄飯店。這是醫藥品，台灣入境有數量限制（個人自用一般以 24 瓶為限），大量購買要留意。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item4">標記為已購 ✓</button>
-        <a class="link-btn" href="https://jp.rohto.com/zi/campaign_dragonquest/" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-  <!-- Item 5 -->
-  <article class="card" id="item5">
-    <div class="thumb">
-      <span class="badge general">Zoff門市・全國</span>
-      <img src="https://www.zoff.co.jp/shop/contents/images/dragonquest/mainvisual.jpg"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="Zoff DRAGON QUEST 聯名眼鏡與眼鏡史萊姆吊飾">
-    </div>
-    <div class="body">
-      <h2 class="name">Zoff｜DRAGON QUEST<br>眼鏡 & 周邊</h2>
-      <p class="price"><b>¥900～16,600</b><span class="twd">≈ NT$180～3,320</span><span>周邊平價・鏡框較高</span></p>
-      <p class="meta">DQ 40 週年聯名｜2026/6/5發售。周邊：眼鏡布 ¥900～1,500、眼鏡史萊姆吊飾（マスコットクリーナー）¥2,500、金屬史萊姆眼鏡盒 ¥2,000、鏡框8型 ¥11,100～16,600（含鏡片）</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span>大阪 Zoff 門市（心齋橋、梅田各大百貨/商場，排除 outlet 店）</span></div>
-        <div class="row"><span class="dot">◆</span><span>線上：Zoff 公式線上商店（部分「アイテム」款為 EC 限定）</span></div>
-      </div>
-      <div class="warn">💡 你截圖那顆「眼鏡史萊姆吊飾」¥2,500，是常態鋪貨的周邊、比鏡框好入手。若只想收吊飾/眼鏡布，門市直接買即可；想配鏡框則要留現場驗光配鏡時間。部分店可能缺特定款，官網「店頭の在庫を探す」可先查大阪門市庫存。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item5">標記為已購 ✓</button>
-        <a class="link-btn" href="https://www.zoff.co.jp/shop/contents/dragonquest.aspx" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-  <!-- Item 6 -->
-  <article class="card" id="item6">
-    <div class="thumb">
-      <span class="badge general">LOFT・MoMA 設計雑貨</span>
-      <img src="https://www.loft.co.jp/shop_assets/img/goods/L/4595641086026-L.jpg"
-           referrerpolicy="no-referrer" loading="lazy"
-           onerror="this.parentNode.classList.add('noimg')"
-           alt="Instant Disk Audio 壁掛 CD 播放器">
-    </div>
-    <div class="body">
-      <h2 class="name">Instant Disk Audio<br>壁掛 CD 播放器（CP1）</h2>
-      <p class="price"><b>¥18,700</b><span class="twd">≈ NT$3,740</span><span>含稅（LOFT／MoMA 版）</span></p>
-      <p class="meta">km5／MoMA｜Bluetooth 5.0・鋰電池續航 7–8 小時・可放歌詞卡當擺飾｜Clear／Silver／Black｜品番 4595641086026</p>
-      <div class="where">
-        <div class="row"><span class="dot">◆</span><span><b>LOFT</b>（梅田・なんば・心齋橋・神戶・京都皆有分店）— 你截圖看到的通路</span></div>
-        <div class="row"><span class="dot">◆</span><span>蔦屋家電・Tokyu Hands・MoMA Design Store・km5 官方</span></div>
-      </div>
-      <div class="warn">⚠️ 本體不含喇叭／USB 充電器／壁掛金具。要像圖中壁掛需另購「壁掛アクセサリー」（約 ¥1,100）。日本買比台灣代購（約 NT$4,780）便宜、還能挑顏色。全國有售，神戶／京都遇到 LOFT 就能先收。</div>
-      <div class="actions">
-        <button class="buy-btn" data-target="item6">標記為已購 ✓</button>
-        <a class="link-btn" href="https://www.loft.co.jp/store/g/g4595641086026/" target="_blank" rel="noopener">官方頁面</a>
-      </div>
-    </div>
-  </article>
-
-</main>
+  </div>
+</div>
 
 <footer>
   💡 行程重點：7/19 正是 FFX 誕生 25 週年當天。<br>
@@ -744,32 +666,223 @@
     });
   });
 
-  // ---------- shopping jump + flash ----------
+  // ==========================================================
+  //  SHOPPING LIST — multiple people, each with their own items
+  // ==========================================================
+  const SHOP_SEED = [
+    { id:'item1', badge:{cls:'general',text:`一般流通・唱片行可買`},
+      image:`https://www.jp.square-enix.com/music/lineup/assets/img/248b97e4e999cac001444a85ad1da3bfdfb0b7ea.jpg`,
+      name:`FINAL FANTASY X<br>LP Vinyl Set -Eternal Calm-`,
+      price:`¥9,350`, twd:`≈ NT$1,870`, priceNote:`含稅（¥8,500+稅）`,
+      meta:`2LP 黑膠｜20 首精選曲｜野村哲也 25 週年新繪封面｜附全 OST MP3 下載碼｜品番 SQEX-11235-6`,
+      where:[`<b>SQUARE ENIX POP UP STORE 大丸心齋橋店</b>（本館9F 活動空間）— 指定購買點`,`備案：大阪 Tower Records（梅田NU茶屋町）等一般唱片行`,`線上：Square Enix e-STORE、CD Japan、Amazon.co.jp`],
+      warn:`✅ POP UP 檔期 7/3～8/30，行程期間營業中。買這張（¥9,350）就達到 ¥6,600 門檻，可拿隨機橡膠杯墊 1 枚（全8種，送完為止）。`,
+      link:`https://www.jp.square-enix.com/music/en/lineup/item/SQEX-11235-6.html`, bought:false },
+    { id:'item2', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
+      image:`https://bushiroad-store.com/cdn/shop/files/THEBOX_BushiroadTHEBOXSkaterJOHN___ari_pack_800x.jpg?v=1773824965`,
+      name:`Skater JOHN<br>フィギュアキーホルダー（轉蛋）`,
+      price:`¥500`, twd:`≈ NT$100`, priceNote:`／轉・全5種（集齊約¥2,500／NT$500）`,
+      meta:`Bushiroad Creative（ブシカプ）｜約50mm 附球鏈｜Flying・Cool・Relax・Let's Go!・Hip Hop John｜2026年5月發售`,
+      where:[`大阪大型扭蛋店：<b>ガシャポンのデパート</b>（難波等）、<b>#C-pla</b>、Yodobashi 梅田扭蛋區——機台位置不固定，看到就轉`,`東京専門店 <b>SKATER JOHN Square</b>（東小金井）有補貨，但在東京`],
+      warn:`💡 不想賭運氣的話：官方 7/31 推出 BUSHIROAD THE BOX 盒裝版（1盒6包保證集齊全5種，每包¥660）——就在你回程隔天發售，可線上預購寄台灣代購或下次帶。`,
+      link:`https://bushiroad-store.com/products/2000284828848`, bought:false },
+    { id:'item3', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
+      image:`https://bandai-a.akamaihd.net/bc/img/model/xl/1000251559_1.jpg`,
+      name:`勇者鬥惡龍 まちぼうけ<br>～但是都沒有人來幫忙～`,
+      price:`¥400`, twd:`≈ NT$80`, priceNote:`／轉・全5種（集齊約¥2,000／NT$400）`,
+      meta:`BANDAI ガシャポン｜史萊姆・木乃伊男・泥手・徬徨鎧甲・麻痺水母｜2026年6月第3週發售`,
+      where:[`全國扭蛋機鋪貨——大阪同樣去<b>ガシャポンのデパート</b>（難波）、<b>#C-pla</b>、Yodobashi 梅田找`,`精準找機台：官方「<b>ガシャポンどこ？</b>」查詢有貨店舖（下方官方頁面內建）`],
+      warn:`⚠️ 這款超熱門，發售後多家店秒空、靠補貨輪流上架。到大阪先用官方查詢確認機台，看到就轉——跟 Skater John 可以排同一趟扭蛋行程。`,
+      link:`https://gashapon.jp/products/detail.php?jan_code=4582769979552000`, bought:false },
+    { id:'item4', badge:{cls:'limited',text:`數量限定・易缺貨`},
+      image:`https://jp.rohto.com/-/media/rohto/products/zi/dragonquest/package_zi_b.png`,
+      name:`ロートジー<br>キングスライム型目薬`,
+      price:`¥715～935`, twd:`≈ NT$143～187`, priceNote:`含稅（依款式）`,
+      meta:`DQ 40 週年聯名第3彈｜王冠瓶身16mL大容量｜第2類醫藥品｜三款：ロートジーb ¥715／コンタクトb ¥825／プロd ¥935｜2026/6/10發售`,
+      where:[`全國藥妝店：<b>松本清 マツキヨ</b>、<b>Sundrug</b>、<b>大國藥妝</b>、<b>KOKUMIN</b>——大阪心齋橋筋、道頓堀一帶密集`,`線上：Amazon.co.jp、樂天、DMM`],
+      warn:`⚠️ 數量限定商品，6/10 發售當天就有店家秒空。你 7/19 才到，藥妝店現貨機率偏低——看到就直接拿，別想說晚點再買。想保險就行前上 Amazon.co.jp 下單寄飯店。這是醫藥品，台灣入境有數量限制（個人自用一般以 24 瓶為限），大量購買要留意。`,
+      link:`https://jp.rohto.com/zi/campaign_dragonquest/`, bought:false },
+    { id:'item5', badge:{cls:'general',text:`Zoff門市・全國`},
+      image:`https://www.zoff.co.jp/shop/contents/images/dragonquest/mainvisual.jpg`,
+      name:`Zoff｜DRAGON QUEST<br>眼鏡 & 周邊`,
+      price:`¥900～16,600`, twd:`≈ NT$180～3,320`, priceNote:`周邊平價・鏡框較高`,
+      meta:`DQ 40 週年聯名｜2026/6/5發售。周邊：眼鏡布 ¥900～1,500、眼鏡史萊姆吊飾（マスコットクリーナー）¥2,500、金屬史萊姆眼鏡盒 ¥2,000、鏡框8型 ¥11,100～16,600（含鏡片）`,
+      where:[`大阪 Zoff 門市（心齋橋、梅田各大百貨/商場，排除 outlet 店）`,`線上：Zoff 公式線上商店（部分「アイテム」款為 EC 限定）`],
+      warn:`💡 你截圖那顆「眼鏡史萊姆吊飾」¥2,500，是常態鋪貨的周邊、比鏡框好入手。若只想收吊飾/眼鏡布，門市直接買即可；想配鏡框則要留現場驗光配鏡時間。部分店可能缺特定款，官網「店頭の在庫を探す」可先查大阪門市庫存。`,
+      link:`https://www.zoff.co.jp/shop/contents/dragonquest.aspx`, bought:false },
+    { id:'item6', badge:{cls:'general',text:`LOFT・MoMA 設計雑貨`},
+      image:`https://www.loft.co.jp/shop_assets/img/goods/L/4595641086026-L.jpg`,
+      name:`Instant Disk Audio<br>壁掛 CD 播放器（CP1）`,
+      price:`¥18,700`, twd:`≈ NT$3,740`, priceNote:`含稅（LOFT／MoMA 版）`,
+      meta:`km5／MoMA｜Bluetooth 5.0・鋰電池續航 7–8 小時・可放歌詞卡當擺飾｜Clear／Silver／Black｜品番 4595641086026`,
+      where:[`<b>LOFT</b>（梅田・なんば・心齋橋・神戶・京都皆有分店）— 你截圖看到的通路`,`蔦屋家電・Tokyu Hands・MoMA Design Store・km5 官方`],
+      warn:`⚠️ 本體不含喇叭／USB 充電器／壁掛金具。要像圖中壁掛需另購「壁掛アクセサリー」（約 ¥1,100）。日本買比台灣代購（約 NT$4,780）便宜、還能挑顏色。全國有售，神戶／京都遇到 LOFT 就能先收。`,
+      link:`https://www.loft.co.jp/store/g/g4595641086026/`, bought:false }
+  ];
+  const DEFAULT_PEOPLE = [ { id:'chris', name:'Chris', items: SHOP_SEED } ];
+  const SHOP_KEY = 'ffx_shop_v1';
+  let PEOPLE, activePerson;
+  try { const s = localStorage.getItem(SHOP_KEY); PEOPLE = s ? JSON.parse(s) : structuredClone(DEFAULT_PEOPLE); }
+  catch(e){ PEOPLE = structuredClone(DEFAULT_PEOPLE); }
+  if(!Array.isArray(PEOPLE) || !PEOPLE.length) PEOPLE = structuredClone(DEFAULT_PEOPLE);
+  activePerson = PEOPLE[0].id;
+  function shopSave(){ try { localStorage.setItem(SHOP_KEY, JSON.stringify(PEOPLE)); } catch(e){} }
+  function currentPerson(){ return PEOPLE.find(p => p.id === activePerson) || PEOPLE[0]; }
+  function uid(pfx){ return pfx + Math.floor(performance.now()*1000).toString(36) + Math.floor(Math.random()*1e6).toString(36); }
+
+  function thumbHtml(it){
+    const badge = it.badge ? `<span class="badge ${it.badge.cls||'general'}">${it.badge.text}</span>` : '';
+    return it.image
+      ? `<div class="thumb">${badge}<img src="${it.image}" referrerpolicy="no-referrer" loading="lazy" onerror="this.parentNode.classList.add('noimg')" alt=""></div>`
+      : `<div class="thumb empty">${badge}<span class="thumb-emoji">🛒</span></div>`;
+  }
+  function itemCard(it){
+    const bought = !!it.bought;
+    const price = it.price ? `<p class="price"><b>${it.price}</b>${it.twd?`<span class="twd">${it.twd}</span>`:''}${it.priceNote?`<span>${it.priceNote}</span>`:''}</p>` : '';
+    const meta  = it.meta ? `<p class="meta">${it.meta}</p>` : '';
+    const where = (it.where && it.where.length) ? `<div class="where">${it.where.map(w=>`<div class="row"><span class="dot">◆</span><span>${w}</span></div>`).join('')}</div>` : '';
+    const warn  = it.warn ? `<div class="warn">${it.warn}</div>` : '';
+    const link  = it.link ? `<a class="link-btn" href="${it.link}" target="_blank" rel="noopener">官方頁面</a>` : '';
+    return `<article class="card${bought?' done':''}" id="${it.id}" data-item="${it.id}">
+      <button class="card-del" data-delitem="${it.id}" title="刪除物品">✕</button>
+      ${thumbHtml(it)}
+      <div class="body">
+        <h2 class="name">${it.name}</h2>
+        ${price}${meta}${where}${warn}
+        <div class="actions">
+          <button class="buy-btn" data-buy="${it.id}">${bought?'已購入 🎉（點擊取消）':'標記為已購 ✓'}</button>
+          ${link}
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function updateProgress(){
+    const cp = currentPerson();
+    const total = cp.items.length, done = cp.items.filter(i=>i.bought).length;
+    document.getElementById('progress').textContent =
+      total===0 ? '尚無物品' : (done===total ? `已購 ${done} / ${total} — 全部到手！` : `已購 ${done} / ${total}`);
+  }
+  function shopRender(){
+    // people chips
+    document.getElementById('people').innerHTML =
+      PEOPLE.map(p => `<button class="person-chip${p.id===activePerson?' active':''}" data-person="${p.id}">${esc(p.name)}${PEOPLE.length>1?`<span class="pdel" data-delperson="${p.id}" title="刪除此人">✕</span>`:''}</button>`).join('')
+      + `<button class="person-add" id="addPerson">＋ 新增人</button>`;
+    // items
+    const cp = currentPerson();
+    document.getElementById('shop-list').innerHTML = cp.items.length
+      ? cp.items.map(itemCard).join('')
+      : `<p class="empty-shop">「${esc(cp.name)}」的清單還是空的。<br>點下方「＋ 新增物品」加入第一項吧！</p>`;
+    updateProgress();
+    const t = document.getElementById('addItemToggle');
+    if(t) t.textContent = '＋ 新增物品到「' + cp.name + '」的清單';
+  }
+
+  const shopPanel = document.getElementById('panel-shop');
+  let armedDelPerson = null, armedDelItem = null;
+  shopPanel.addEventListener('click', e => {
+    const dp = e.target.closest('[data-delperson]');
+    if(dp){ deletePerson(dp); return; }
+    const chip = e.target.closest('[data-person]');
+    if(chip){ activePerson = chip.dataset.person; shopRender(); return; }
+    if(e.target.closest('#addPerson')){ addPerson(); return; }
+    const buy = e.target.closest('[data-buy]');
+    if(buy){ toggleBuy(buy.dataset.buy); return; }
+    const di = e.target.closest('[data-delitem]');
+    if(di){ deleteItem(di); return; }
+  });
+
+  function toggleBuy(id){
+    const it = currentPerson().items.find(i => i.id === id); if(!it) return;
+    it.bought = !it.bought; shopSave();
+    const card = document.getElementById(id);
+    if(card){
+      card.classList.toggle('done', it.bought);
+      const b = card.querySelector('.buy-btn');
+      if(b) b.textContent = it.bought ? '已購入 🎉（點擊取消）' : '標記為已購 ✓';
+    }
+    updateProgress();
+  }
+  function addPerson(){
+    const name = (window.prompt('新增人的名字：') || '').trim();
+    if(!name) return;
+    const id = uid('p');
+    PEOPLE.push({ id, name, items: [] });
+    activePerson = id; shopSave(); shopRender();
+  }
+  // two-tap confirm on the small ✕ so a person / whole list isn't deleted by accident
+  function deletePerson(el){
+    if(PEOPLE.length <= 1) return;
+    const id = el.dataset.delperson;
+    if(armedDelPerson !== id){
+      armedDelPerson = id; armedDelItem = null;
+      shopRender();
+      const btn = document.querySelector('[data-delperson="'+id+'"]');
+      if(btn){ btn.textContent = '確定?'; btn.style.width='auto'; btn.style.padding='0 6px'; btn.style.borderRadius='9px'; }
+      setTimeout(() => { if(armedDelPerson===id){ armedDelPerson=null; shopRender(); } }, 3000);
+      return;
+    }
+    armedDelPerson = null;
+    PEOPLE = PEOPLE.filter(p => p.id !== id);
+    if(activePerson === id) activePerson = PEOPLE[0].id;
+    shopSave(); shopRender();
+  }
+  function deleteItem(el){
+    const id = el.dataset.delitem;
+    if(armedDelItem !== id){
+      armedDelItem = id; armedDelPerson = null;
+      el.classList.add('arm'); el.textContent = '確定刪除?';
+      setTimeout(() => { if(armedDelItem===id){ armedDelItem=null; const b=document.querySelector('[data-delitem="'+id+'"]'); if(b){ b.classList.remove('arm'); b.textContent='✕'; } } }, 3000);
+      return;
+    }
+    armedDelItem = null;
+    const cp = currentPerson();
+    cp.items = cp.items.filter(i => i.id !== id);
+    shopSave(); shopRender();
+  }
+
+  // add-item form
+  const addItemForm = document.getElementById('addItemForm');
+  const fld = f => addItemForm.querySelector('[data-f="'+f+'"]');
+  document.getElementById('addItemToggle').addEventListener('click', () => {
+    addItemForm.hidden = !addItemForm.hidden;
+    if(!addItemForm.hidden) fld('name').focus();
+  });
+  document.getElementById('addItemCancel').addEventListener('click', () => { clearItemForm(); addItemForm.hidden = true; });
+  document.getElementById('addItemSave').addEventListener('click', saveNewItem);
+  addItemForm.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); saveNewItem(); } });
+  function clearItemForm(){ ['name','place','price','notes'].forEach(f => fld(f).value = ''); }
+  function saveNewItem(){
+    const name = (fld('name').value||'').trim();
+    if(!name){ fld('name').focus(); return; }
+    const place = (fld('place').value||'').trim();
+    const price = (fld('price').value||'').trim();
+    const notes = (fld('notes').value||'').trim();
+    currentPerson().items.push({
+      id: uid('u'), name: esc(name),
+      price: price ? esc(price) : '', where: place ? [esc(place)] : [],
+      meta: notes ? esc(notes) : '', image:'', link:'', bought:false
+    });
+    shopSave(); clearItemForm(); addItemForm.hidden = true; shopRender();
+  }
+
+  // ---------- shopping jump + flash (from itinerary chips) ----------
   function jumpToItem(id){
+    const owner = PEOPLE.find(p => p.items.some(i => i.id === id));
+    if(owner) activePerson = owner.id;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelector('.tab[data-panel="shop"]').classList.add('active');
     document.getElementById('panel-shop').classList.add('active');
+    shopRender();
     const card = document.getElementById(id); if(!card) return;
     card.scrollIntoView({behavior:'smooth', block:'center'});
     card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
     setTimeout(() => card.classList.remove('flash'), 1800);
   }
 
-  // ---------- shopping counter ----------
-  const total = 6; let done = 0;
-  document.querySelectorAll('.buy-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const card = document.getElementById(btn.dataset.target);
-      const isDone = card.classList.toggle('done');
-      btn.textContent = isDone ? '已購入 🎉（點擊取消）' : '標記為已購 ✓';
-      done += isDone ? 1 : -1;
-      document.getElementById('progress').textContent =
-        done === total ? '已購 ' + done + ' / ' + total + ' — 全部到手！' : '已購 ' + done + ' / ' + total;
-    });
-  });
-
   // ---------- init ----------
+  shopRender();
   render();
 </script>
 
