@@ -217,13 +217,6 @@
     background:rgba(111,216,220,.1);border-radius:12px;
     font-size:12.5px;line-height:1.75;color:var(--aqua-soft);
   }
-  /* edit toolbar + controls */
-  .trip-toolbar{max-width:560px;margin:0 auto 4px;padding:0 16px;display:flex;gap:8px;justify-content:flex-end}
-  .reset-btn{
-    border:none;cursor:pointer;font-family:inherit;font-weight:700;
-    font-size:13px;letter-spacing:.05em;padding:9px 15px;border-radius:10px;
-    background:rgba(228,52,42,.16);color:#F3B4AF;
-  }
   /* per-day edit button in the title bar */
   .seg-edit{
     margin-left:auto;flex:none;align-self:center;
@@ -336,6 +329,28 @@
   .thumb.empty{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#EAF6F7,#D6EEF0)}
   .thumb.empty::after{display:none}
   .thumb-emoji{font-size:44px}
+  /* ===== supabase controls ===== */
+  .sync-bar{max-width:560px;margin:2px auto 0;padding:0 16px;display:flex;gap:8px;justify-content:flex-end}
+  .sync-bar button{
+    border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;
+    padding:7px 12px;border-radius:999px;background:rgba(234,246,247,.12);color:var(--aqua-soft);
+  }
+  .sync-bar .lock.unlocked{background:var(--gold);color:#2A2010}
+  .cfg-banner,.import-banner{
+    max-width:560px;margin:10px auto 0;padding:11px 14px;border-radius:12px;
+    font-size:13px;line-height:1.6;color:#2A2010;background:rgba(200,169,110,.92);text-align:center;
+  }
+  .import-banner button{
+    margin-top:7px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;
+    padding:9px 15px;border-radius:10px;background:var(--deep);color:#fff;
+  }
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,160%);
+    background:var(--night);color:var(--foam);border:1px solid rgba(111,216,220,.35);
+    padding:11px 16px;border-radius:12px;font-size:13.5px;z-index:200;max-width:88vw;text-align:center;
+    box-shadow:0 12px 34px rgba(0,0,0,.5);transition:transform .28s ease;
+  }
+  .toast.show{transform:translate(-50%,0)}
 </style>
 </head>
 <body>
@@ -353,12 +368,22 @@
   <button class="tab" data-panel="trip">🗺️ 行程</button>
 </div>
 
+<div class="sync-bar">
+  <button id="refreshBtn" title="從資料庫重新載入">↻ 同步</button>
+  <button id="lockBtn" class="lock" title="解鎖以編輯">🔒 檢視</button>
+</div>
+<div class="cfg-banner" id="cfgBanner" hidden>⚙️ 尚未接上資料庫，目前顯示預設資料（唯讀）。</div>
+
 <section class="panel active" id="panel-shop">
+<div class="import-banner" id="importBanner" hidden>
+  資料庫目前是空的。<br><button id="importBtn">⬆️ 一鍵匯入預設清單與行程</button>
+</div>
+
 <div class="people-bar">
   <div class="people" id="people"></div>
 </div>
 
-<p class="progress" id="progress">已購 0 / 6</p>
+<p class="progress" id="progress">載入中…</p>
 
 <main id="shop-list"></main>
 
@@ -385,15 +410,73 @@
 </section>
 
 <section class="panel" id="panel-trip">
-<div class="trip-toolbar">
-  <button id="resetTrip" class="reset-btn" hidden>↺ 重設行程</button>
-</div>
 <div class="trip" id="trip"></div>
-<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps（餐廳、商店多無圖庫，顯示 emoji）。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳左側 ⠿ 把手排序、✕ 刪除、底部新增地點。變更存在此裝置瀏覽器（換裝置或清快取會回預設）。</p>
+<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳左側 ⠿ 把手排序、✕ 刪除、底部新增地點。編輯需先用右上角 🔒 解鎖（輸入密碼），所有變更即時存到資料庫、跨裝置同步。</p>
 </section>
 
-<script>
-  // ---------- default itinerary data ----------
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  // ==========================================================
+  //  CONFIG — Supabase project (anon key is safe to be public;
+  //  writes are gated by the passcode via RLS, not by this key)
+  // ==========================================================
+  const SUPA_URL  = 'https://nllxqllzuxgkdpwzfvmx.supabase.co';
+  const SUPA_ANON = '__SUPABASE_ANON_KEY__';
+  const CONFIGURED = !!SUPA_ANON && !SUPA_ANON.startsWith('__');
+
+  // ---------- default data (read-only preview + one-click import) ----------
+  const SHOP_SEED = [
+    { id:'item1', badge:{cls:'general',text:`一般流通・唱片行可買`},
+      image:`https://www.jp.square-enix.com/music/lineup/assets/img/248b97e4e999cac001444a85ad1da3bfdfb0b7ea.jpg`,
+      name:`FINAL FANTASY X<br>LP Vinyl Set -Eternal Calm-`,
+      price:`¥9,350`, twd:`≈ NT$1,870`, priceNote:`含稅（¥8,500+稅）`,
+      meta:`2LP 黑膠｜20 首精選曲｜野村哲也 25 週年新繪封面｜附全 OST MP3 下載碼｜品番 SQEX-11235-6`,
+      where:[`<b>SQUARE ENIX POP UP STORE 大丸心齋橋店</b>（本館9F 活動空間）— 指定購買點`,`備案：大阪 Tower Records（梅田NU茶屋町）等一般唱片行`,`線上：Square Enix e-STORE、CD Japan、Amazon.co.jp`],
+      warn:`✅ POP UP 檔期 7/3～8/30，行程期間營業中。買這張（¥9,350）就達到 ¥6,600 門檻，可拿隨機橡膠杯墊 1 枚（全8種，送完為止）。`,
+      link:`https://www.jp.square-enix.com/music/en/lineup/item/SQEX-11235-6.html` },
+    { id:'item2', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
+      image:`https://bushiroad-store.com/cdn/shop/files/THEBOX_BushiroadTHEBOXSkaterJOHN___ari_pack_800x.jpg?v=1773824965`,
+      name:`Skater JOHN<br>フィギュアキーホルダー（轉蛋）`,
+      price:`¥500`, twd:`≈ NT$100`, priceNote:`／轉・全5種（集齊約¥2,500／NT$500）`,
+      meta:`Bushiroad Creative（ブシカプ）｜約50mm 附球鏈｜Flying・Cool・Relax・Let's Go!・Hip Hop John｜2026年5月發售`,
+      where:[`大阪大型扭蛋店：<b>ガシャポンのデパート</b>（難波等）、<b>#C-pla</b>、Yodobashi 梅田扭蛋區——機台位置不固定，看到就轉`,`東京専門店 <b>SKATER JOHN Square</b>（東小金井）有補貨，但在東京`],
+      warn:`💡 不想賭運氣的話：官方 7/31 推出 BUSHIROAD THE BOX 盒裝版（1盒6包保證集齊全5種，每包¥660）——就在你回程隔天發售，可線上預購寄台灣代購或下次帶。`,
+      link:`https://bushiroad-store.com/products/2000284828848` },
+    { id:'item3', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
+      image:`https://bandai-a.akamaihd.net/bc/img/model/xl/1000251559_1.jpg`,
+      name:`勇者鬥惡龍 まちぼうけ<br>～但是都沒有人來幫忙～`,
+      price:`¥400`, twd:`≈ NT$80`, priceNote:`／轉・全5種（集齊約¥2,000／NT$400）`,
+      meta:`BANDAI ガシャポン｜史萊姆・木乃伊男・泥手・徬徨鎧甲・麻痺水母｜2026年6月第3週發售`,
+      where:[`全國扭蛋機鋪貨——大阪同樣去<b>ガシャポンのデパート</b>（難波）、<b>#C-pla</b>、Yodobashi 梅田找`,`精準找機台：官方「<b>ガシャポンどこ？</b>」查詢有貨店舖（下方官方頁面內建）`],
+      warn:`⚠️ 這款超熱門，發售後多家店秒空、靠補貨輪流上架。到大阪先用官方查詢確認機台，看到就轉——跟 Skater John 可以排同一趟扭蛋行程。`,
+      link:`https://gashapon.jp/products/detail.php?jan_code=4582769979552000` },
+    { id:'item4', badge:{cls:'limited',text:`數量限定・易缺貨`},
+      image:`https://jp.rohto.com/-/media/rohto/products/zi/dragonquest/package_zi_b.png`,
+      name:`ロートジー<br>キングスライム型目薬`,
+      price:`¥715～935`, twd:`≈ NT$143～187`, priceNote:`含稅（依款式）`,
+      meta:`DQ 40 週年聯名第3彈｜王冠瓶身16mL大容量｜第2類醫藥品｜三款：ロートジーb ¥715／コンタクトb ¥825／プロd ¥935｜2026/6/10發售`,
+      where:[`全國藥妝店：<b>松本清 マツキヨ</b>、<b>Sundrug</b>、<b>大國藥妝</b>、<b>KOKUMIN</b>——大阪心齋橋筋、道頓堀一帶密集`,`線上：Amazon.co.jp、樂天、DMM`],
+      warn:`⚠️ 數量限定商品，6/10 發售當天就有店家秒空。你 7/19 才到，藥妝店現貨機率偏低——看到就直接拿，別想說晚點再買。想保險就行前上 Amazon.co.jp 下單寄飯店。這是醫藥品，台灣入境有數量限制（個人自用一般以 24 瓶為限），大量購買要留意。`,
+      link:`https://jp.rohto.com/zi/campaign_dragonquest/` },
+    { id:'item5', badge:{cls:'general',text:`Zoff門市・全國`},
+      image:`https://www.zoff.co.jp/shop/contents/images/dragonquest/mainvisual.jpg`,
+      name:`Zoff｜DRAGON QUEST<br>眼鏡 & 周邊`,
+      price:`¥900～16,600`, twd:`≈ NT$180～3,320`, priceNote:`周邊平價・鏡框較高`,
+      meta:`DQ 40 週年聯名｜2026/6/5發售。周邊：眼鏡布 ¥900～1,500、眼鏡史萊姆吊飾（マスコットクリーナー）¥2,500、金屬史萊姆眼鏡盒 ¥2,000、鏡框8型 ¥11,100～16,600（含鏡片）`,
+      where:[`大阪 Zoff 門市（心齋橋、梅田各大百貨/商場，排除 outlet 店）`,`線上：Zoff 公式線上商店（部分「アイテム」款為 EC 限定）`],
+      warn:`💡 你截圖那顆「眼鏡史萊姆吊飾」¥2,500，是常態鋪貨的周邊、比鏡框好入手。若只想收吊飾/眼鏡布，門市直接買即可；想配鏡框則要留現場驗光配鏡時間。部分店可能缺特定款，官網「店頭の在庫を探す」可先查大阪門市庫存。`,
+      link:`https://www.zoff.co.jp/shop/contents/dragonquest.aspx` },
+    { id:'item6', badge:{cls:'general',text:`LOFT・MoMA 設計雑貨`},
+      image:`https://www.loft.co.jp/shop_assets/img/goods/L/4595641086026-L.jpg`,
+      name:`Instant Disk Audio<br>壁掛 CD 播放器（CP1）`,
+      price:`¥18,700`, twd:`≈ NT$3,740`, priceNote:`含稅（LOFT／MoMA 版）`,
+      meta:`km5／MoMA｜Bluetooth 5.0・鋰電池續航 7–8 小時・可放歌詞卡當擺飾｜Clear／Silver／Black｜品番 4595641086026`,
+      where:[`<b>LOFT</b>（梅田・なんば・心齋橋・神戶・京都皆有分店）— 你截圖看到的通路`,`蔦屋家電・Tokyu Hands・MoMA Design Store・km5 官方`],
+      warn:`⚠️ 本體不含喇叭／USB 充電器／壁掛金具。要像圖中壁掛需另購「壁掛アクセサリー」（約 ¥1,100）。日本買比台灣代購（約 NT$4,780）便宜、還能挑顏色。全國有售，神戶／京都遇到 LOFT 就能先收。`,
+      link:`https://www.loft.co.jp/store/g/g4595641086026/` }
+  ];
+  const DEFAULT_PEOPLE = [ { name:'Chris', items: SHOP_SEED } ];
   const DEFAULT_TRIP = [
     { date:'7/19 · Day 1', place:'神戶 Kobe', src:'', hotel:'', hotelq:'',
       spots:[
@@ -465,81 +548,168 @@
         {name:'道頓堀・心齋橋筋 藥妝店',q:'マツモトキヨシ 道頓堀',sub:'史萊姆目薬到處找',wiki:'',emoji:'💊'} ] }
   ];
 
-  const STORE_KEY = 'ffx_trip_v2';
-  let TRIP;
-  try { const s = localStorage.getItem(STORE_KEY); TRIP = s ? JSON.parse(s) : structuredClone(DEFAULT_TRIP); }
-  catch(e){ TRIP = structuredClone(DEFAULT_TRIP); }
-  function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(TRIP)); } catch(e){} }
-
-  // which day cards are currently in edit mode (runtime only, not persisted)
-  const editingDays = new Set();
-
+  // ---------- utils ----------
   const maps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  let toastTimer = null;
+  function toast(msg){ const t = document.getElementById('toast'); if(!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2800); }
 
-  // ---------- render ----------
+  // ---------- state ----------
+  let PEOPLE = [], TRIP = [], activePerson = null;
+  const editingDays = new Set();   // holds day ids in edit mode
+  let READONLY = !CONFIGURED;
+  let sb = null, _createClient = null;
+  let editPass = (()=>{ try { return localStorage.getItem('ffx_pass') || null; } catch(e){ return null; } })();
+
+  // ---------- supabase client ----------
+  function makeClient(){
+    const headers = {};
+    if(editPass) headers['x-edit-pass'] = editPass;
+    return _createClient(SUPA_URL, SUPA_ANON, { global:{ headers }, auth:{ persistSession:false } });
+  }
+  function rebuildClient(){ if(_createClient) sb = makeClient(); }
+  async function getCreateClient(){
+    if(window.__mockCreateClient) return window.__mockCreateClient;
+    const m = await import('https://esm.sh/@supabase/supabase-js@2');
+    return m.createClient;
+  }
+
+  // ---------- row <-> model mapping ----------
+  function mapItem(r){ return { id:r.id, person_id:r.person_id, slug:r.slug||'', name:r.name||'', price:r.price||'', twd:r.twd||'', priceNote:r.price_note||'', meta:r.meta||'', where:Array.isArray(r.where_rows)?r.where_rows:[], warn:r.warn||'', image:r.image||'', link:r.link||'', badge:(r.badge_text?{cls:r.badge_cls||'general',text:r.badge_text}:null), bought:!!r.bought, position:r.position||0 }; }
+  function mapDay(r){ return { id:r.id, date:r.date_label||'', place:r.place||'', src:r.src||'', hotel:r.hotel||'', hotelq:r.hotelq||'', buyStrip:r.buystrip||null, position:r.position||0 }; }
+  function mapSpot(r){ return { id:r.id, day_id:r.day_id, name:r.name||'', q:r.q||'', wiki:r.wiki||'', emoji:r.emoji||'📍', sub:r.sub||'', tag:r.tag||'', skip:!!r.skip, position:r.position||0 }; }
+
+  function seedModels(){
+    const people = DEFAULT_PEOPLE.map((p,pi)=>({ id:'seedp'+pi, name:p.name, position:pi,
+      items: p.items.map((it,ii)=>({ ...it, id: it.id, slug: it.id, position:ii, bought:false })) }));
+    const trip = DEFAULT_TRIP.map((d,di)=>({ id:'seedd'+di, date:d.date, place:d.place||'', src:d.src||'', hotel:d.hotel||'', hotelq:d.hotelq||'', buyStrip:d.buyStrip||null, position:di,
+      spots:(d.spots||[]).map((s,si)=>({ ...s, id:'seedd'+di+'s'+si, position:si })) }));
+    return { people, trip };
+  }
+
+  // ---------- load ----------
+  async function loadFromDB(){
+    const [pR,iR,dR,sR] = await Promise.all([
+      sb.from('people').select('*').order('position'),
+      sb.from('items').select('*').order('position'),
+      sb.from('trip_days').select('*').order('position'),
+      sb.from('trip_spots').select('*').order('position')
+    ]);
+    const err = pR.error||iR.error||dR.error||sR.error;
+    if(err) throw err;
+    const items = (iR.data||[]).map(mapItem);
+    PEOPLE = (pR.data||[]).map(p => ({ id:p.id, name:p.name, position:p.position, items: items.filter(i=>i.person_id===p.id) }));
+    const spots = (sR.data||[]).map(mapSpot);
+    TRIP = (dR.data||[]).map(d => { const m = mapDay(d); m.spots = spots.filter(s=>s.day_id===d.id); return m; });
+    if(!activePerson || !PEOPLE.some(p=>p.id===activePerson)) activePerson = PEOPLE[0] ? PEOPLE[0].id : null;
+  }
+  function loadSeed(){ const m = seedModels(); PEOPLE = m.people; TRIP = m.trip; activePerson = PEOPLE[0] ? PEOPLE[0].id : null; }
+
+  let reloadTimer = null;
+  function debouncedReload(){ clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 400); }
+  async function reload(){
+    if(!READONLY){
+      try { await loadFromDB(); }
+      catch(e){ toast('讀取失敗：' + (e.message||e)); }
+    }
+    renderAll();
+  }
+  function renderAll(){ shopRender(); render(); refreshImportBanner(); updateLockUI(); }
+  function refreshImportBanner(){
+    const b = document.getElementById('importBanner');
+    if(b) b.hidden = READONLY || PEOPLE.length>0 || TRIP.length>0;
+    const cb = document.getElementById('cfgBanner');
+    if(cb) cb.hidden = !READONLY;
+  }
+
+  // ---------- passcode / lock ----------
+  async function ensurePass(){
+    if(READONLY){ toast('目前為唯讀（資料庫尚未設定）'); return false; }
+    if(editPass) return true;
+    const p = window.prompt('請輸入編輯密碼：');
+    if(p == null) return false;
+    const v = p.trim(); if(!v) return false;
+    editPass = v; try { localStorage.setItem('ffx_pass', v); } catch(e){}
+    rebuildClient(); updateLockUI(); return true;
+  }
+  function lock(){ editPass = null; try { localStorage.removeItem('ffx_pass'); } catch(e){} rebuildClient(); updateLockUI(); toast('已鎖定'); }
+  function updateLockUI(){
+    const b = document.getElementById('lockBtn'); if(!b) return;
+    if(READONLY){ b.hidden = true; return; }
+    b.hidden = false;
+    b.classList.toggle('unlocked', !!editPass);
+    b.textContent = editPass ? '🔓 可編輯' : '🔒 檢視';
+    b.title = editPass ? '點擊鎖定' : '點擊解鎖以編輯';
+  }
+  function handleWriteError(error){
+    const msg = ((error && (error.message||error.hint)) || '') + ' ' + ((error && error.code) || '');
+    if(/row-level security|policy|permission|denied|42501|JWT|401|403/i.test(msg)){
+      toast('密碼錯誤或無權限 — 請重新解鎖'); editPass = null;
+      try { localStorage.removeItem('ffx_pass'); } catch(e){}
+      rebuildClient(); updateLockUI();
+    } else { toast('操作失敗：' + ((error && error.message) || error)); }
+    return false;
+  }
+
+  // ==========================================================
+  //  ITINERARY (trip)
+  // ==========================================================
+  const tripEl = document.getElementById('trip');
+
   function render(){
-    const root = document.getElementById('trip');
-    root.innerHTML = TRIP.map((seg,si) => {
+    tripEl.innerHTML = TRIP.map(seg => {
       const hotel = seg.hotelq
         ? (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + `<a class="hotel-link" href="${maps(seg.hotelq)}" target="_blank" rel="noopener">${esc(seg.hotel)}</a>`
         : (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + esc(seg.hotel);
-      const strip = seg.buyStrip ? `<div class="buy-strip ${seg.buyStrip.cls}">
+      const strip = seg.buyStrip ? `<div class="buy-strip ${seg.buyStrip.cls||''}">
         <div class="bs-title">${esc(seg.buyStrip.title)}</div>
-        <div class="buy-chips">${seg.buyStrip.chips.map(c=>`<a class="buy-chip" data-item="${c.item}"><span class="em">${c.em}</span>${esc(c.label)}</a>`).join('')}</div>
+        <div class="buy-chips">${(seg.buyStrip.chips||[]).map(c=>`<a class="buy-chip" data-item="${esc(c.item)}"><span class="em">${c.em}</span>${esc(c.label)}</a>`).join('')}</div>
       </div>` : '';
-      const spots = seg.spots.map((sp,pi) => {
+      const spots = seg.spots.map(sp => {
         const sub = sp.sub ? `<span style="display:block;font-size:11px;color:#7A8B94;font-weight:400;margin-top:2px">${esc(sp.sub)}</span>` : '';
         const wiki = sp.wiki ? ` data-wiki="${esc(sp.wiki)}"` : '';
-        return `<div class="spot ${sp.skip?'skip':''}" data-si="${si}" data-pi="${pi}">
+        return `<div class="spot ${sp.skip?'skip':''}" data-day="${seg.id}" data-spot="${sp.id}">
           <span class="drag-handle" title="拖曳排序">⠿</span>
           <a class="sthumb" href="${maps(sp.q)}"${wiki} target="_blank" rel="noopener"><span class="ph">${sp.emoji||'📍'}</span></a>
           <a class="name" href="${maps(sp.q)}" target="_blank" rel="noopener">${esc(sp.name)}${sub}</a>
           ${sp.tag||''}
-          <span class="ctrls">
-            <button class="ctrl del" title="刪除">✕</button>
-          </span>
+          <span class="ctrls"><button class="ctrl del" title="刪除">✕</button></span>
         </div>`;
       }).join('');
       const add = `<div class="addspot"><div class="addspot-row">
-        <input type="text" placeholder="新增地點名稱…" data-add="${si}">
-        <button class="add-go" data-addgo="${si}">＋ 加入</button>
+        <input type="text" placeholder="新增地點名稱…" data-add="${seg.id}">
+        <button class="add-go" data-addgo="${seg.id}">＋ 加入</button>
       </div></div>`;
       const hotelLine = (seg.hotel||seg.hotelq||seg.src) ? `<div class="seg-hotel">${hotel}</div>` : '';
-      const editing = editingDays.has(si);
+      const editing = editingDays.has(seg.id);
       return `<div class="seg${editing?' editing':''}">
         <div class="seg-head">
           <span class="date">${esc(seg.date)}</span><span class="place">${esc(seg.place)}</span>
-          <button class="seg-edit" data-editday="${si}">${editing?'✓ 完成':'✏️ 編輯'}</button>
+          <button class="seg-edit" data-editday="${seg.id}">${editing?'✓ 完成':'✏️ 編輯'}</button>
         </div>
         ${hotelLine}
         ${strip}
         <div class="spots">${spots}${add}</div>
       </div>`;
     }).join('');
-    loadThumbs(root);
-    const rb = document.getElementById('resetTrip');
-    if(rb) rb.hidden = editingDays.size === 0;
+    loadThumbs(tripEl);
   }
 
-  // ---------- Wikipedia thumbnails (reusable) ----------
+  // Wikipedia thumbnails
   const thumbCache = {};
   function loadThumbs(scope){
     (scope||document).querySelectorAll('.sthumb[data-wiki]').forEach(el => {
       if(el.classList.contains('loaded')) return;
       const title = el.dataset.wiki; if(!title) return;
-      const apply = url => { if(!url) return; const img = new Image();
-        img.onload = () => { el.style.backgroundImage = `url("${url}")`; el.classList.add('loaded'); }; img.src = url; };
+      const apply = url => { if(!url) return; const img = new Image(); img.onload = () => { el.style.backgroundImage = `url("${url}")`; el.classList.add('loaded'); }; img.src = url; };
       if(thumbCache[title]){ thumbCache[title].then(apply); return; }
-      const api = 'https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*'
-        + '&prop=pageimages&piprop=thumbnail&pithumbsize=160&redirects=1&titles=' + encodeURIComponent(title);
+      const api = 'https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages&piprop=thumbnail&pithumbsize=160&redirects=1&titles=' + encodeURIComponent(title);
       const p = fetch(api).then(r=>r.json()).then(d=>{ const pg=d&&d.query&&d.query.pages||{}; const f=Object.values(pg)[0]; return f&&f.thumbnail?f.thumbnail.source:null; }).catch(()=>null);
       thumbCache[title] = p; p.then(apply);
     });
   }
 
-  // ---------- edit interactions (event delegation) ----------
-  const tripEl = document.getElementById('trip');
+  // undo bar (spot delete)
   let lastDeleted = null, undoTimer = null;
   function showUndo(name){
     let bar = document.getElementById('undoBar');
@@ -547,66 +717,77 @@
       bar = document.createElement('div'); bar.id = 'undoBar';
       bar.innerHTML = '<span id="undoText"></span><button id="undoBtn">↩ 復原</button>';
       document.body.appendChild(bar);
-      document.getElementById('undoBtn').addEventListener('click', () => {
-        if(lastDeleted){
-          TRIP[lastDeleted.si].spots.splice(lastDeleted.pi, 0, lastDeleted.spot);
-          lastDeleted = null; save(); render(); keepEditing();
-        }
-        hideUndo();
-      });
+      document.getElementById('undoBtn').addEventListener('click', undoDelete);
     }
     document.getElementById('undoText').textContent = '已刪除「' + name + '」';
-    bar.classList.add('show');
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(hideUndo, 5000);
+    bar.classList.add('show'); clearTimeout(undoTimer); undoTimer = setTimeout(hideUndo, 5000);
   }
   function hideUndo(){ const b = document.getElementById('undoBar'); if(b) b.classList.remove('show'); }
 
   tripEl.addEventListener('click', e => {
     const chip = e.target.closest('.buy-chip');
     if(chip){ jumpToItem(chip.dataset.item); return; }
-    // toggle a single day's edit mode from its title-bar button
     const eb = e.target.closest('[data-editday]');
-    if(eb){
-      const si = +eb.dataset.editday;
-      if(editingDays.has(si)) editingDays.delete(si); else editingDays.add(si);
-      render();
-      return;
-    }
-    const spot = e.target.closest('.spot');
-    if(e.target.closest('.ctrl.del') && spot){
-      const si = +spot.dataset.si, pi = +spot.dataset.pi, arr = TRIP[si].spots;
-      lastDeleted = { si, pi, spot: arr[pi] };
-      arr.splice(pi,1);
-      showUndo(lastDeleted.spot.name);
-      save(); render();
-    }
-  });
-  tripEl.addEventListener('click', e => {
+    if(eb){ const id = eb.dataset.editday; if(editingDays.has(id)) editingDays.delete(id); else editingDays.add(id); render(); return; }
+    const delBtn = e.target.closest('.ctrl.del');
+    if(delBtn){ const spot = delBtn.closest('.spot'); if(spot) deleteSpot(spot.dataset.day, spot.dataset.spot); return; }
     const go = e.target.closest('[data-addgo]');
-    if(!go) return;
-    const si = +go.dataset.addgo;
-    const input = tripEl.querySelector('input[data-add="'+si+'"]');
-    const name = (input.value||'').trim(); if(!name) return;
-    TRIP[si].spots.push({name, q:name, wiki:name, emoji:'📍'});
-    save(); render();
+    if(go){ addSpot(go.dataset.addgo); return; }
   });
   tripEl.addEventListener('keydown', e => {
     if(e.key==='Enter' && e.target.matches('input[data-add]')){
-      const si = e.target.dataset.add;
-      tripEl.querySelector('[data-addgo="'+si+'"]').click();
+      const id = e.target.dataset.add;
+      const btn = tripEl.querySelector('[data-addgo="'+id+'"]'); if(btn) btn.click();
     }
   });
 
-  // ---------- drag & drop reorder (touch + mouse via pointer events) ----------
+  async function addSpot(dayId){
+    const day = TRIP.find(d=>d.id===dayId); if(!day) return;
+    const input = tripEl.querySelector('input[data-add="'+dayId+'"]');
+    const name = (input && input.value || '').trim(); if(!name) return;
+    if(!await ensurePass()) return;
+    const position = day.spots.length ? Math.max(...day.spots.map(s=>s.position||0))+1 : 0;
+    const { data, error } = await sb.from('trip_spots').insert({ day_id:dayId, name, q:name, wiki:name, emoji:'📍', position }).select().single();
+    if(error) return handleWriteError(error);
+    day.spots.push(mapSpot(data)); render();
+  }
+  async function deleteSpot(dayId, spotId){
+    const day = TRIP.find(d=>d.id===dayId); if(!day) return;
+    const idx = day.spots.findIndex(s=>s.id===spotId); if(idx<0) return;
+    if(!await ensurePass()) return;
+    const spot = day.spots[idx];
+    const { error } = await sb.from('trip_spots').delete().eq('id', spotId);
+    if(error) return handleWriteError(error);
+    lastDeleted = { dayId, spot:{...spot}, pos:idx };
+    day.spots.splice(idx,1); render(); showUndo(spot.name);
+  }
+  async function undoDelete(){
+    if(!lastDeleted) return;
+    const { dayId, spot, pos } = lastDeleted; lastDeleted = null;
+    if(!await ensurePass()){ hideUndo(); return; }
+    const { data, error } = await sb.from('trip_spots').insert({ day_id:dayId, name:spot.name, q:spot.q, wiki:spot.wiki, emoji:spot.emoji, sub:spot.sub, tag:spot.tag, skip:spot.skip, position:spot.position }).select().single();
+    if(error){ handleWriteError(error); hideUndo(); return; }
+    const day = TRIP.find(d=>d.id===dayId); if(day) day.spots.splice(Math.min(pos, day.spots.length), 0, mapSpot(data));
+    render(); hideUndo();
+  }
+  async function reorderSpots(dayId, orderedIds){
+    const day = TRIP.find(d=>d.id===dayId); if(!day) return;
+    const cur = day.spots.map(s=>s.id);
+    if(cur.length===orderedIds.length && cur.every((id,i)=>id===orderedIds[i])){ render(); return; }
+    if(!await ensurePass()){ render(); return; }
+    day.spots = orderedIds.map(id=>day.spots.find(s=>s.id===id)).filter(Boolean);
+    day.spots.forEach((s,i)=>s.position=i);
+    render();
+    for(const s of day.spots){ const { error } = await sb.from('trip_spots').update({ position:s.position }).eq('id', s.id); if(error){ handleWriteError(error); break; } }
+  }
+
+  // drag & drop reorder (pointer events)
   let drag = null;
   function onDragMove(e){
-    if(!drag) return;
-    e.preventDefault();
+    if(!drag) return; e.preventDefault();
     const y = e.clientY;
-    const others = [...drag.list.querySelectorAll('.spot')];
     let ref = null;
-    for(const s of others){
+    for(const s of drag.list.querySelectorAll('.spot')){
       if(s === drag.spot) continue;
       const r = s.getBoundingClientRect();
       if(y < r.top + r.height/2){ ref = s; break; }
@@ -616,120 +797,40 @@
   function onDragEnd(){
     if(!drag) return;
     drag.spot.classList.remove('dragging');
-    const si = drag.si;
-    const order = [...drag.list.querySelectorAll('.spot')].map(s => +s.dataset.pi);
-    if(order.some((pi,i) => pi !== i)){
-      const old = TRIP[si].spots;
-      TRIP[si].spots = order.map(pi => old[pi]);
-      save();
-    }
-    drag = null;
+    const dayId = drag.dayId;
+    const order = [...drag.list.querySelectorAll('.spot')].map(s=>s.dataset.spot);
+    const d = drag; drag = null;
     document.removeEventListener('pointermove', onDragMove);
     document.removeEventListener('pointerup', onDragEnd);
     document.removeEventListener('pointercancel', onDragEnd);
-    render();
+    reorderSpots(dayId, order);
   }
   tripEl.addEventListener('pointerdown', e => {
-    const handle = e.target.closest('.drag-handle');
-    if(!handle) return;
-    const spot = handle.closest('.spot');
-    if(!spot) return;
+    const handle = e.target.closest('.drag-handle'); if(!handle) return;
+    const spot = handle.closest('.spot'); if(!spot) return;
     e.preventDefault();
-    drag = { spot, list: spot.closest('.spots'), si: +spot.dataset.si };
+    drag = { spot, list: spot.closest('.spots'), dayId: spot.dataset.day };
     spot.classList.add('dragging');
-    document.addEventListener('pointermove', onDragMove, {passive:false});
+    document.addEventListener('pointermove', onDragMove, { passive:false });
     document.addEventListener('pointerup', onDragEnd);
     document.addEventListener('pointercancel', onDragEnd);
   });
 
-  const resetBtn = document.getElementById('resetTrip');
-  let resetArmed = false, resetTimer = null;
-  resetBtn.addEventListener('click', () => {
-    if(!resetArmed){
-      resetArmed = true;
-      resetBtn.textContent = '⚠ 再按一次確認重設';
-      resetTimer = setTimeout(() => { resetArmed = false; resetBtn.textContent = '↺ 重設行程'; }, 3000);
-      return;
-    }
-    clearTimeout(resetTimer); resetArmed = false; resetBtn.textContent = '↺ 重設行程';
-    TRIP = structuredClone(DEFAULT_TRIP); editingDays.clear(); save(); render();
-  });
-
-  // ---------- tabs ----------
+  // tabs
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
       document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
-      window.scrollTo({top:0, behavior:'smooth'});
+      window.scrollTo({ top:0, behavior:'smooth' });
     });
   });
 
   // ==========================================================
-  //  SHOPPING LIST — multiple people, each with their own items
+  //  SHOPPING (people + items)
   // ==========================================================
-  const SHOP_SEED = [
-    { id:'item1', badge:{cls:'general',text:`一般流通・唱片行可買`},
-      image:`https://www.jp.square-enix.com/music/lineup/assets/img/248b97e4e999cac001444a85ad1da3bfdfb0b7ea.jpg`,
-      name:`FINAL FANTASY X<br>LP Vinyl Set -Eternal Calm-`,
-      price:`¥9,350`, twd:`≈ NT$1,870`, priceNote:`含稅（¥8,500+稅）`,
-      meta:`2LP 黑膠｜20 首精選曲｜野村哲也 25 週年新繪封面｜附全 OST MP3 下載碼｜品番 SQEX-11235-6`,
-      where:[`<b>SQUARE ENIX POP UP STORE 大丸心齋橋店</b>（本館9F 活動空間）— 指定購買點`,`備案：大阪 Tower Records（梅田NU茶屋町）等一般唱片行`,`線上：Square Enix e-STORE、CD Japan、Amazon.co.jp`],
-      warn:`✅ POP UP 檔期 7/3～8/30，行程期間營業中。買這張（¥9,350）就達到 ¥6,600 門檻，可拿隨機橡膠杯墊 1 枚（全8種，送完為止）。`,
-      link:`https://www.jp.square-enix.com/music/en/lineup/item/SQEX-11235-6.html`, bought:false },
-    { id:'item2', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
-      image:`https://bushiroad-store.com/cdn/shop/files/THEBOX_BushiroadTHEBOXSkaterJOHN___ari_pack_800x.jpg?v=1773824965`,
-      name:`Skater JOHN<br>フィギュアキーホルダー（轉蛋）`,
-      price:`¥500`, twd:`≈ NT$100`, priceNote:`／轉・全5種（集齊約¥2,500／NT$500）`,
-      meta:`Bushiroad Creative（ブシカプ）｜約50mm 附球鏈｜Flying・Cool・Relax・Let's Go!・Hip Hop John｜2026年5月發售`,
-      where:[`大阪大型扭蛋店：<b>ガシャポンのデパート</b>（難波等）、<b>#C-pla</b>、Yodobashi 梅田扭蛋區——機台位置不固定，看到就轉`,`東京専門店 <b>SKATER JOHN Square</b>（東小金井）有補貨，但在東京`],
-      warn:`💡 不想賭運氣的話：官方 7/31 推出 BUSHIROAD THE BOX 盒裝版（1盒6包保證集齊全5種，每包¥660）——就在你回程隔天發售，可線上預購寄台灣代購或下次帶。`,
-      link:`https://bushiroad-store.com/products/2000284828848`, bought:false },
-    { id:'item3', badge:{cls:'general',text:`轉蛋・全國鋪貨`},
-      image:`https://bandai-a.akamaihd.net/bc/img/model/xl/1000251559_1.jpg`,
-      name:`勇者鬥惡龍 まちぼうけ<br>～但是都沒有人來幫忙～`,
-      price:`¥400`, twd:`≈ NT$80`, priceNote:`／轉・全5種（集齊約¥2,000／NT$400）`,
-      meta:`BANDAI ガシャポン｜史萊姆・木乃伊男・泥手・徬徨鎧甲・麻痺水母｜2026年6月第3週發售`,
-      where:[`全國扭蛋機鋪貨——大阪同樣去<b>ガシャポンのデパート</b>（難波）、<b>#C-pla</b>、Yodobashi 梅田找`,`精準找機台：官方「<b>ガシャポンどこ？</b>」查詢有貨店舖（下方官方頁面內建）`],
-      warn:`⚠️ 這款超熱門，發售後多家店秒空、靠補貨輪流上架。到大阪先用官方查詢確認機台，看到就轉——跟 Skater John 可以排同一趟扭蛋行程。`,
-      link:`https://gashapon.jp/products/detail.php?jan_code=4582769979552000`, bought:false },
-    { id:'item4', badge:{cls:'limited',text:`數量限定・易缺貨`},
-      image:`https://jp.rohto.com/-/media/rohto/products/zi/dragonquest/package_zi_b.png`,
-      name:`ロートジー<br>キングスライム型目薬`,
-      price:`¥715～935`, twd:`≈ NT$143～187`, priceNote:`含稅（依款式）`,
-      meta:`DQ 40 週年聯名第3彈｜王冠瓶身16mL大容量｜第2類醫藥品｜三款：ロートジーb ¥715／コンタクトb ¥825／プロd ¥935｜2026/6/10發售`,
-      where:[`全國藥妝店：<b>松本清 マツキヨ</b>、<b>Sundrug</b>、<b>大國藥妝</b>、<b>KOKUMIN</b>——大阪心齋橋筋、道頓堀一帶密集`,`線上：Amazon.co.jp、樂天、DMM`],
-      warn:`⚠️ 數量限定商品，6/10 發售當天就有店家秒空。你 7/19 才到，藥妝店現貨機率偏低——看到就直接拿，別想說晚點再買。想保險就行前上 Amazon.co.jp 下單寄飯店。這是醫藥品，台灣入境有數量限制（個人自用一般以 24 瓶為限），大量購買要留意。`,
-      link:`https://jp.rohto.com/zi/campaign_dragonquest/`, bought:false },
-    { id:'item5', badge:{cls:'general',text:`Zoff門市・全國`},
-      image:`https://www.zoff.co.jp/shop/contents/images/dragonquest/mainvisual.jpg`,
-      name:`Zoff｜DRAGON QUEST<br>眼鏡 & 周邊`,
-      price:`¥900～16,600`, twd:`≈ NT$180～3,320`, priceNote:`周邊平價・鏡框較高`,
-      meta:`DQ 40 週年聯名｜2026/6/5發售。周邊：眼鏡布 ¥900～1,500、眼鏡史萊姆吊飾（マスコットクリーナー）¥2,500、金屬史萊姆眼鏡盒 ¥2,000、鏡框8型 ¥11,100～16,600（含鏡片）`,
-      where:[`大阪 Zoff 門市（心齋橋、梅田各大百貨/商場，排除 outlet 店）`,`線上：Zoff 公式線上商店（部分「アイテム」款為 EC 限定）`],
-      warn:`💡 你截圖那顆「眼鏡史萊姆吊飾」¥2,500，是常態鋪貨的周邊、比鏡框好入手。若只想收吊飾/眼鏡布，門市直接買即可；想配鏡框則要留現場驗光配鏡時間。部分店可能缺特定款，官網「店頭の在庫を探す」可先查大阪門市庫存。`,
-      link:`https://www.zoff.co.jp/shop/contents/dragonquest.aspx`, bought:false },
-    { id:'item6', badge:{cls:'general',text:`LOFT・MoMA 設計雑貨`},
-      image:`https://www.loft.co.jp/shop_assets/img/goods/L/4595641086026-L.jpg`,
-      name:`Instant Disk Audio<br>壁掛 CD 播放器（CP1）`,
-      price:`¥18,700`, twd:`≈ NT$3,740`, priceNote:`含稅（LOFT／MoMA 版）`,
-      meta:`km5／MoMA｜Bluetooth 5.0・鋰電池續航 7–8 小時・可放歌詞卡當擺飾｜Clear／Silver／Black｜品番 4595641086026`,
-      where:[`<b>LOFT</b>（梅田・なんば・心齋橋・神戶・京都皆有分店）— 你截圖看到的通路`,`蔦屋家電・Tokyu Hands・MoMA Design Store・km5 官方`],
-      warn:`⚠️ 本體不含喇叭／USB 充電器／壁掛金具。要像圖中壁掛需另購「壁掛アクセサリー」（約 ¥1,100）。日本買比台灣代購（約 NT$4,780）便宜、還能挑顏色。全國有售，神戶／京都遇到 LOFT 就能先收。`,
-      link:`https://www.loft.co.jp/store/g/g4595641086026/`, bought:false }
-  ];
-  const DEFAULT_PEOPLE = [ { id:'chris', name:'Chris', items: SHOP_SEED } ];
-  const SHOP_KEY = 'ffx_shop_v1';
-  let PEOPLE, activePerson;
-  try { const s = localStorage.getItem(SHOP_KEY); PEOPLE = s ? JSON.parse(s) : structuredClone(DEFAULT_PEOPLE); }
-  catch(e){ PEOPLE = structuredClone(DEFAULT_PEOPLE); }
-  if(!Array.isArray(PEOPLE) || !PEOPLE.length) PEOPLE = structuredClone(DEFAULT_PEOPLE);
-  activePerson = PEOPLE[0].id;
-  function shopSave(){ try { localStorage.setItem(SHOP_KEY, JSON.stringify(PEOPLE)); } catch(e){} }
-  function currentPerson(){ return PEOPLE.find(p => p.id === activePerson) || PEOPLE[0]; }
-  function uid(pfx){ return pfx + Math.floor(performance.now()*1000).toString(36) + Math.floor(Math.random()*1e6).toString(36); }
-
+  function currentPerson(){ return PEOPLE.find(p=>p.id===activePerson) || PEOPLE[0] || null; }
   function thumbHtml(it){
     const badge = it.badge ? `<span class="badge ${it.badge.cls||'general'}">${it.badge.text}</span>` : '';
     return it.image
@@ -743,7 +844,7 @@
     const where = (it.where && it.where.length) ? `<div class="where">${it.where.map(w=>`<div class="row"><span class="dot">◆</span><span>${w}</span></div>`).join('')}</div>` : '';
     const warn  = it.warn ? `<div class="warn">${it.warn}</div>` : '';
     const link  = it.link ? `<a class="link-btn" href="${it.link}" target="_blank" rel="noopener">官方頁面</a>` : '';
-    return `<article class="card${bought?' done':''}" id="${it.id}" data-item="${it.id}">
+    return `<article class="card${bought?' done':''}" id="card-${it.id}" data-item="${it.id}">
       <button class="card-del" data-delitem="${it.id}" title="刪除物品">✕</button>
       ${thumbHtml(it)}
       <div class="body">
@@ -756,134 +857,176 @@
       </div>
     </article>`;
   }
-
   function updateProgress(){
     const cp = currentPerson();
+    const el = document.getElementById('progress');
+    if(!cp){ el.textContent = READONLY ? '（唯讀預覽）' : '尚無清單'; return; }
     const total = cp.items.length, done = cp.items.filter(i=>i.bought).length;
-    document.getElementById('progress').textContent =
-      total===0 ? '尚無物品' : (done===total ? `已購 ${done} / ${total} — 全部到手！` : `已購 ${done} / ${total}`);
+    el.textContent = total===0 ? '尚無物品' : (done===total ? `已購 ${done} / ${total} — 全部到手！` : `已購 ${done} / ${total}`);
   }
   function shopRender(){
-    // people chips
     document.getElementById('people').innerHTML =
       PEOPLE.map(p => `<button class="person-chip${p.id===activePerson?' active':''}" data-person="${p.id}">${esc(p.name)}${PEOPLE.length>1?`<span class="pdel" data-delperson="${p.id}" title="刪除此人">✕</span>`:''}</button>`).join('')
       + `<button class="person-add" id="addPerson">＋ 新增人</button>`;
-    // items
     const cp = currentPerson();
-    document.getElementById('shop-list').innerHTML = cp.items.length
+    document.getElementById('shop-list').innerHTML = (cp && cp.items.length)
       ? cp.items.map(itemCard).join('')
-      : `<p class="empty-shop">「${esc(cp.name)}」的清單還是空的。<br>點下方「＋ 新增物品」加入第一項吧！</p>`;
+      : `<p class="empty-shop">${cp?`「${esc(cp.name)}」的清單還是空的。<br>點下方「＋ 新增物品」加入第一項吧！`:'還沒有任何人的清單。'}</p>`;
     updateProgress();
     const t = document.getElementById('addItemToggle');
-    if(t) t.textContent = '＋ 新增物品到「' + cp.name + '」的清單';
+    if(t) t.textContent = cp ? ('＋ 新增物品到「' + cp.name + '」的清單') : '＋ 新增物品';
   }
 
   const shopPanel = document.getElementById('panel-shop');
   let armedDelPerson = null, armedDelItem = null;
   shopPanel.addEventListener('click', e => {
-    const dp = e.target.closest('[data-delperson]');
-    if(dp){ deletePerson(dp); return; }
-    const chip = e.target.closest('[data-person]');
-    if(chip){ activePerson = chip.dataset.person; shopRender(); return; }
+    if(e.target.closest('#importBtn')){ importDefaults(); return; }
+    const dp = e.target.closest('[data-delperson]'); if(dp){ armDelPerson(dp); return; }
+    const chip = e.target.closest('[data-person]'); if(chip){ activePerson = chip.dataset.person; shopRender(); return; }
     if(e.target.closest('#addPerson')){ addPerson(); return; }
-    const buy = e.target.closest('[data-buy]');
-    if(buy){ toggleBuy(buy.dataset.buy); return; }
-    const di = e.target.closest('[data-delitem]');
-    if(di){ deleteItem(di); return; }
+    const buy = e.target.closest('[data-buy]'); if(buy){ toggleBuy(buy.dataset.buy); return; }
+    const di = e.target.closest('[data-delitem]'); if(di){ armDelItem(di); return; }
   });
 
-  function toggleBuy(id){
-    const it = currentPerson().items.find(i => i.id === id); if(!it) return;
-    it.bought = !it.bought; shopSave();
-    const card = document.getElementById(id);
-    if(card){
-      card.classList.toggle('done', it.bought);
-      const b = card.querySelector('.buy-btn');
-      if(b) b.textContent = it.bought ? '已購入 🎉（點擊取消）' : '標記為已購 ✓';
-    }
+  async function toggleBuy(id){
+    const cp = currentPerson(); if(!cp) return;
+    const it = cp.items.find(i=>i.id===id); if(!it) return;
+    if(!await ensurePass()) return;
+    const next = !it.bought;
+    const { error } = await sb.from('items').update({ bought: next }).eq('id', id);
+    if(error) return handleWriteError(error);
+    it.bought = next;
+    const card = document.getElementById('card-'+id);
+    if(card){ card.classList.toggle('done', next); const b = card.querySelector('.buy-btn'); if(b) b.textContent = next ? '已購入 🎉（點擊取消）' : '標記為已購 ✓'; }
     updateProgress();
   }
-  function addPerson(){
-    const name = (window.prompt('新增人的名字：') || '').trim();
-    if(!name) return;
-    const id = uid('p');
-    PEOPLE.push({ id, name, items: [] });
-    activePerson = id; shopSave(); shopRender();
+  async function addPerson(){
+    if(!await ensurePass()) return;
+    const name = (window.prompt('新增人的名字：') || '').trim(); if(!name) return;
+    const position = PEOPLE.length ? Math.max(...PEOPLE.map(p=>p.position||0))+1 : 0;
+    const { data, error } = await sb.from('people').insert({ name, position }).select().single();
+    if(error) return handleWriteError(error);
+    PEOPLE.push({ id:data.id, name:data.name, position:data.position, items:[] });
+    activePerson = data.id; shopRender();
   }
-  // two-tap confirm on the small ✕ so a person / whole list isn't deleted by accident
-  function deletePerson(el){
-    if(PEOPLE.length <= 1) return;
+  function armDelPerson(el){
+    if(PEOPLE.length <= 1){ toast('至少要保留一個人'); return; }
     const id = el.dataset.delperson;
     if(armedDelPerson !== id){
-      armedDelPerson = id; armedDelItem = null;
-      shopRender();
+      armedDelPerson = id; armedDelItem = null; shopRender();
       const btn = document.querySelector('[data-delperson="'+id+'"]');
-      if(btn){ btn.textContent = '確定?'; btn.style.width='auto'; btn.style.padding='0 6px'; btn.style.borderRadius='9px'; }
-      setTimeout(() => { if(armedDelPerson===id){ armedDelPerson=null; shopRender(); } }, 3000);
+      if(btn){ btn.textContent='確定?'; btn.style.width='auto'; btn.style.padding='0 6px'; btn.style.borderRadius='9px'; }
+      setTimeout(()=>{ if(armedDelPerson===id){ armedDelPerson=null; shopRender(); } }, 3000);
       return;
     }
-    armedDelPerson = null;
-    PEOPLE = PEOPLE.filter(p => p.id !== id);
-    if(activePerson === id) activePerson = PEOPLE[0].id;
-    shopSave(); shopRender();
+    armedDelPerson = null; deletePersonConfirmed(id);
   }
-  function deleteItem(el){
+  async function deletePersonConfirmed(id){
+    if(!await ensurePass()){ shopRender(); return; }
+    const { error } = await sb.from('people').delete().eq('id', id);
+    if(error) return handleWriteError(error);
+    PEOPLE = PEOPLE.filter(p=>p.id!==id);
+    if(activePerson===id) activePerson = PEOPLE[0] ? PEOPLE[0].id : null;
+    shopRender();
+  }
+  function armDelItem(el){
     const id = el.dataset.delitem;
     if(armedDelItem !== id){
       armedDelItem = id; armedDelPerson = null;
       el.classList.add('arm'); el.textContent = '確定刪除?';
-      setTimeout(() => { if(armedDelItem===id){ armedDelItem=null; const b=document.querySelector('[data-delitem="'+id+'"]'); if(b){ b.classList.remove('arm'); b.textContent='✕'; } } }, 3000);
+      setTimeout(()=>{ if(armedDelItem===id){ armedDelItem=null; const b=document.querySelector('[data-delitem="'+id+'"]'); if(b){ b.classList.remove('arm'); b.textContent='✕'; } } }, 3000);
       return;
     }
-    armedDelItem = null;
-    const cp = currentPerson();
-    cp.items = cp.items.filter(i => i.id !== id);
-    shopSave(); shopRender();
+    armedDelItem = null; deleteItemConfirmed(id);
+  }
+  async function deleteItemConfirmed(id){
+    if(!await ensurePass()){ shopRender(); return; }
+    const { error } = await sb.from('items').delete().eq('id', id);
+    if(error) return handleWriteError(error);
+    const cp = currentPerson(); if(cp) cp.items = cp.items.filter(i=>i.id!==id);
+    shopRender();
   }
 
   // add-item form
   const addItemForm = document.getElementById('addItemForm');
   const fld = f => addItemForm.querySelector('[data-f="'+f+'"]');
-  document.getElementById('addItemToggle').addEventListener('click', () => {
-    addItemForm.hidden = !addItemForm.hidden;
-    if(!addItemForm.hidden) fld('name').focus();
-  });
+  document.getElementById('addItemToggle').addEventListener('click', () => { addItemForm.hidden = !addItemForm.hidden; if(!addItemForm.hidden) fld('name').focus(); });
   document.getElementById('addItemCancel').addEventListener('click', () => { clearItemForm(); addItemForm.hidden = true; });
   document.getElementById('addItemSave').addEventListener('click', saveNewItem);
   addItemForm.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); saveNewItem(); } });
   function clearItemForm(){ ['name','place','price','notes'].forEach(f => fld(f).value = ''); }
-  function saveNewItem(){
-    const name = (fld('name').value||'').trim();
-    if(!name){ fld('name').focus(); return; }
-    const place = (fld('place').value||'').trim();
-    const price = (fld('price').value||'').trim();
-    const notes = (fld('notes').value||'').trim();
-    currentPerson().items.push({
-      id: uid('u'), name: esc(name),
-      price: price ? esc(price) : '', where: place ? [esc(place)] : [],
-      meta: notes ? esc(notes) : '', image:'', link:'', bought:false
-    });
-    shopSave(); clearItemForm(); addItemForm.hidden = true; shopRender();
+  async function saveNewItem(){
+    const cp = currentPerson(); if(!cp){ toast('請先新增一個人'); return; }
+    const name = (fld('name').value||'').trim(); if(!name){ fld('name').focus(); return; }
+    if(!await ensurePass()) return;
+    const place = (fld('place').value||'').trim(), price = (fld('price').value||'').trim(), notes = (fld('notes').value||'').trim();
+    const position = cp.items.length ? Math.max(...cp.items.map(i=>i.position||0))+1 : 0;
+    const row = { person_id: cp.id, name: esc(name), price: price?esc(price):'', where_rows: place?[esc(place)]:[], meta: notes?esc(notes):'', bought:false, position };
+    const { data, error } = await sb.from('items').insert(row).select().single();
+    if(error) return handleWriteError(error);
+    cp.items.push(mapItem(data)); clearItemForm(); addItemForm.hidden = true; shopRender();
   }
 
-  // ---------- shopping jump + flash (from itinerary chips) ----------
-  function jumpToItem(id){
-    const owner = PEOPLE.find(p => p.items.some(i => i.id === id));
-    if(owner) activePerson = owner.id;
+  // jump from itinerary chip (matches item id or slug)
+  function jumpToItem(ref){
+    const all = PEOPLE.flatMap(p=>p.items.map(i=>({p,i})));
+    const hit = all.find(x=>x.i.id===ref || x.i.slug===ref);
+    if(hit) activePerson = hit.p.id;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelector('.tab[data-panel="shop"]').classList.add('active');
     document.getElementById('panel-shop').classList.add('active');
     shopRender();
-    const card = document.getElementById(id); if(!card) return;
-    card.scrollIntoView({behavior:'smooth', block:'center'});
+    if(!hit) return;
+    const card = document.getElementById('card-'+hit.i.id); if(!card) return;
+    card.scrollIntoView({ behavior:'smooth', block:'center' });
     card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
-    setTimeout(() => card.classList.remove('flash'), 1800);
+    setTimeout(()=>card.classList.remove('flash'), 1800);
+  }
+
+  // ---------- one-click import of defaults into the DB ----------
+  async function importDefaults(){
+    if(!await ensurePass()) return;
+    toast('匯入中…');
+    for(let pi=0; pi<DEFAULT_PEOPLE.length; pi++){
+      const p = DEFAULT_PEOPLE[pi];
+      const { data:prow, error } = await sb.from('people').insert({ name:p.name, position:pi }).select().single();
+      if(error) return handleWriteError(error);
+      const rows = p.items.map((it,idx)=>({ person_id:prow.id, slug:it.id, name:it.name, price:it.price||'', twd:it.twd||'', price_note:it.priceNote||'', meta:it.meta||'', where_rows:it.where||[], warn:it.warn||'', image:it.image||'', link:it.link||'', badge_cls:(it.badge&&it.badge.cls)||'', badge_text:(it.badge&&it.badge.text)||'', bought:false, position:idx }));
+      if(rows.length){ const { error:e2 } = await sb.from('items').insert(rows); if(e2) return handleWriteError(e2); }
+    }
+    for(let di=0; di<DEFAULT_TRIP.length; di++){
+      const d = DEFAULT_TRIP[di];
+      const { data:drow, error } = await sb.from('trip_days').insert({ date_label:d.date, place:d.place||'', src:d.src||'', hotel:d.hotel||'', hotelq:d.hotelq||'', buystrip:d.buyStrip||null, position:di }).select().single();
+      if(error) return handleWriteError(error);
+      const srows = (d.spots||[]).map((s,idx)=>({ day_id:drow.id, name:s.name, q:s.q||'', wiki:s.wiki||'', emoji:s.emoji||'📍', sub:s.sub||'', tag:s.tag||'', skip:!!s.skip, position:idx }));
+      if(srows.length){ const { error:e3 } = await sb.from('trip_spots').insert(srows); if(e3) return handleWriteError(e3); }
+    }
+    toast('匯入完成！'); await reload();
+  }
+
+  // ---------- top controls ----------
+  document.getElementById('refreshBtn').addEventListener('click', () => { toast('同步中…'); reload(); });
+  document.getElementById('lockBtn').addEventListener('click', () => { if(READONLY) return; if(editPass) lock(); else ensurePass(); });
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && !READONLY) debouncedReload(); });
+
+  function setupRealtime(){
+    try {
+      sb.channel('ffx-any')
+        .on('postgres_changes', { event:'*', schema:'public' }, () => debouncedReload())
+        .subscribe();
+    } catch(e){}
   }
 
   // ---------- init ----------
-  shopRender();
-  render();
+  (async function init(){
+    if(!CONFIGURED){ READONLY = true; loadSeed(); renderAll(); return; }
+    try { _createClient = await getCreateClient(); sb = makeClient(); }
+    catch(e){ READONLY = true; loadSeed(); renderAll(); toast('無法載入資料庫元件，顯示預設資料'); return; }
+    await reload();
+    setupRealtime();
+    if(window.__afterInit) window.__afterInit();
+  })();
 </script>
 
 </body>
