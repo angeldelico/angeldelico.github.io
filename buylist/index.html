@@ -1,264 +1,717 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache">
-<title>My Buy List</title>
+<title>FFX 25th｜一月日本行購物清單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: "Avenir-Roman", "Avenir", -apple-system, "Helvetica Neue", sans-serif;
-    color: #464646;
-    background: #f7f5f2;
-    padding-bottom: 40px;
+  :root{
+    --night:#0A1826;        /* ザナルカンドの夜 */
+    --deep:#123049;         /* 深海 */
+    --aqua:#6FD8DC;         /* 透明海色膠片 */
+    --aqua-soft:#AEEAEA;
+    --foam:#EAF6F7;         /* 浪沫白 */
+    --ink:#1C3446;
+    --gold:#C8A96E;         /* 祈り子的微光 */
   }
-  header {
-    background: #fff;
-    padding: 20px 16px 0;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:'Zen Kaku Gothic New',-apple-system,sans-serif;
+    background:linear-gradient(175deg,var(--night) 0%,var(--deep) 42%,#1C4A63 100%);
+    min-height:100vh;
+    color:var(--foam);
+    padding:0 0 64px;
   }
-  h1 {
-    font-family: "Avenir-Heavy", "Avenir", sans-serif;
-    font-size: 26px;
-    text-align: center;
-    margin-bottom: 12px;
+  /* header */
+  header{padding:52px 24px 30px;text-align:center;position:relative;overflow:hidden}
+  .eyebrow{
+    font-size:11px;letter-spacing:.42em;color:var(--aqua);
+    text-transform:uppercase;margin-bottom:14px;
   }
-  .tabs { display: flex; }
-  .tab {
-    flex: 1;
-    text-align: center;
-    padding: 12px 0;
-    font-size: 17px;
-    font-weight: 600;
-    color: #999;
-    border-bottom: 3px solid transparent;
-    cursor: pointer;
-    user-select: none;
+  h1{
+    font-family:'Shippori Mincho',serif;font-weight:700;
+    font-size:clamp(26px,7vw,34px);line-height:1.35;letter-spacing:.06em;
   }
-  .tab.active { color: #464646; border-bottom-color: #e8998d; }
-  .toolbar { padding: 12px 16px 0; max-width: 640px; margin: 0 auto; }
-  .search {
-    width: 100%;
-    padding: 10px 14px;
-    font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    background: #fff;
-    color: #464646;
+  h1 small{display:block;font-size:13px;font-weight:500;letter-spacing:.3em;color:var(--aqua-soft);margin-top:10px}
+  .wave-rule{
+    width:120px;height:14px;margin:22px auto 0;opacity:.75;
   }
-  .filters { display: flex; gap: 8px; margin-top: 10px; }
-  .chip {
-    padding: 6px 14px;
-    font-size: 14px;
-    border-radius: 20px;
-    background: #fff;
-    border: 1px solid #ddd;
-    cursor: pointer;
-    user-select: none;
+  /* progress */
+  .progress{
+    max-width:560px;margin:0 auto 26px;padding:0 24px;
+    font-size:12px;letter-spacing:.18em;color:var(--aqua-soft);text-align:center;
   }
-  .chip.active { background: #464646; color: #fff; border-color: #464646; }
-  main { max-width: 640px; margin: 0 auto; padding: 16px; }
-  .card {
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
-    margin-bottom: 16px;
-    display: flex;
+  /* cards */
+  main{max-width:560px;margin:0 auto;padding:0 16px;display:grid;gap:22px}
+  .card{
+    background:var(--foam);color:var(--ink);
+    border-radius:18px;overflow:hidden;
+    box-shadow:0 18px 40px rgba(4,14,24,.45);
+    transition:opacity .35s ease, transform .35s ease;
   }
-  .thumb {
-    width: 110px;
-    min-height: 110px;
-    flex-shrink: 0;
-    background: #eee;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 40px;
-    cursor: pointer;
+  .card.done{opacity:.55;transform:scale(.985)}
+  .thumb{
+    position:relative;background:#fff;
+    aspect-ratio:16/10;overflow:hidden;
   }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .card-body { padding: 12px 14px; flex: 1; min-width: 0; }
-  .card-title { font-family: "Avenir-Heavy", "Avenir", sans-serif; font-size: 17px; margin-bottom: 4px; }
-  .card-line { font-size: 14px; color: #6d6d6d; margin-bottom: 3px; line-height: 1.45; }
-  .card-line .icon { margin-right: 4px; }
-  .badge {
-    display: inline-block;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 12px;
-    margin-top: 6px;
+  .thumb img{width:100%;height:100%;object-fit:contain;padding:14px}
+  .thumb.noimg img{display:none}
+  .thumb.noimg::before{
+    content:"🎵 圖片載入失敗（點下方「官方頁面」查看）";
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:#5A7484;background:linear-gradient(160deg,#EAF6F7,#D6EEF0);
   }
-  .badge.to-buy { background: #fdecea; color: #c0392b; }
-  .badge.bought { background: #e8f6ee; color: #1e8e4e; }
-  .badge.now-open { background: #e8f6ee; color: #1e8e4e; }
-  .badge.upcoming { background: #fff4e0; color: #b26a00; }
-  .badge.ended { background: #eee; color: #888; }
-  .bought-toggle {
-    margin-top: 8px;
-    font-size: 13px;
-    color: #1e8e4e;
-    background: none;
-    border: 1px solid #1e8e4e;
-    border-radius: 14px;
-    padding: 4px 12px;
-    cursor: pointer;
+  .thumb::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(111,216,220,0) 62%,rgba(111,216,220,.22) 100%);
+    pointer-events:none;
   }
-  .card.done { opacity: .55; }
-  .card.done .card-title { text-decoration: line-through; }
-  a.maplink { color: #2b6cb0; text-decoration: none; }
-  .empty { text-align: center; color: #999; padding: 60px 20px; font-size: 16px; line-height: 1.6; }
-  .count { text-align: center; font-size: 13px; color: #999; margin-bottom: 12px; }
-  /* image lightbox */
-  #lightbox {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.85);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+  .badge{
+    position:absolute;top:12px;left:12px;
+    font-size:11px;font-weight:700;letter-spacing:.14em;
+    padding:5px 11px;border-radius:999px;color:#fff;
   }
-  #lightbox img { max-width: 95%; max-height: 95%; border-radius: 8px; }
+  .badge.limited{background:var(--night)}
+  .badge.general{background:#2E7E8C}
+  .body{padding:18px 20px 20px}
+  .name{
+    font-family:'Shippori Mincho',serif;font-weight:700;
+    font-size:17.5px;line-height:1.45;letter-spacing:.02em;
+  }
+  .price{
+    display:flex;align-items:baseline;gap:8px;margin:10px 0 2px;
+  }
+  .price b{font-size:24px;letter-spacing:.02em;color:var(--deep)}
+  .price .twd{font-size:13px;font-weight:700;color:#B5241C;white-space:nowrap}
+  .price span{font-size:12px;color:#5A7484}
+  .meta{font-size:12.5px;color:#5A7484;margin-bottom:14px}
+  .where{
+    border-top:1px solid rgba(28,52,70,.12);padding-top:13px;
+    display:grid;gap:8px;font-size:13.5px;line-height:1.55;
+  }
+  .where .row{display:flex;gap:9px}
+  .where .dot{color:var(--gold);flex:none;line-height:1.55}
+  .where b{color:var(--deep)}
+  .warn{
+    margin-top:13px;background:rgba(200,169,110,.14);
+    border-left:3px solid var(--gold);
+    padding:9px 12px;font-size:12.5px;line-height:1.6;border-radius:0 8px 8px 0;
+  }
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .buy-btn,.link-btn{
+    flex:1;text-align:center;padding:12px 8px;border-radius:12px;
+    font-size:14px;font-weight:700;letter-spacing:.06em;
+    border:none;cursor:pointer;text-decoration:none;
+    font-family:inherit;
+  }
+  .buy-btn{background:var(--deep);color:#fff}
+  .card.done .buy-btn{background:#7FA8B5}
+  .link-btn{background:transparent;color:var(--deep);border:1.5px solid rgba(18,48,73,.35)}
+  footer{
+    max-width:560px;margin:30px auto 0;padding:0 28px;
+    font-size:12px;line-height:1.9;color:var(--aqua-soft);text-align:center;letter-spacing:.04em;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .card{transition:none}
+  }
+  /* tabs */
+  .tabs{
+    max-width:560px;margin:0 auto 4px;padding:0 16px;
+    display:flex;gap:8px;
+  }
+  .tab{
+    flex:1;padding:12px 8px;border:none;cursor:pointer;
+    font-family:'Shippori Mincho',serif;font-weight:700;
+    font-size:15px;letter-spacing:.08em;
+    background:rgba(234,246,247,.08);color:var(--aqua-soft);
+    border-radius:12px 12px 0 0;transition:background .25s,color .25s;
+  }
+  .tab.active{background:var(--foam);color:var(--deep)}
+  .panel{display:none}
+  .panel.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* itinerary */
+  .trip{max-width:560px;margin:0 auto;padding:14px 16px 0;display:grid;gap:18px}
+  .seg{
+    background:var(--foam);color:var(--ink);border-radius:16px;overflow:hidden;
+    box-shadow:0 14px 34px rgba(4,14,24,.4);
+  }
+  .seg-head{
+    padding:15px 18px;color:#fff;
+    background:linear-gradient(120deg,var(--deep),#1C4A63);
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;
+  }
+  .seg-head .date{font-size:12px;letter-spacing:.14em;color:var(--aqua)}
+  .seg-head .place{font-family:'Shippori Mincho',serif;font-weight:700;font-size:19px;letter-spacing:.04em}
+  .seg-hotel{
+    padding:9px 18px;font-size:12.5px;color:#5A7484;
+    border-bottom:1px solid rgba(28,52,70,.1);display:flex;gap:7px;align-items:center;
+  }
+  .seg-hotel .src{
+    font-size:10.5px;background:rgba(200,169,110,.2);color:#8A6D34;
+    padding:2px 7px;border-radius:999px;letter-spacing:.06em;flex:none;
+  }
+  .spots{padding:8px 18px 16px;display:grid;gap:2px}
+  .spot{
+    display:flex;align-items:center;gap:12px;padding:8px 2px;
+    font-size:14.5px;line-height:1.35;border-bottom:1px solid rgba(28,52,70,.07);
+  }
+  .spot:last-child{border-bottom:none}
+  .sthumb{
+    width:54px;height:54px;border-radius:11px;flex:none;overflow:hidden;
+    background:linear-gradient(135deg,#1C4A63,#2E7E8C);
+    background-size:cover;background-position:center;
+    display:flex;align-items:center;justify-content:center;text-decoration:none;
+    box-shadow:0 3px 8px rgba(4,14,24,.18);
+  }
+  .sthumb .ph{font-size:22px;filter:saturate(0)brightness(2.2);opacity:.9}
+  .sthumb.loaded .ph{display:none}
+  .spot .name{color:var(--ink);text-decoration:none;flex:1;border-bottom:none;font-weight:500}
+  .spot .name:hover{color:var(--deep)}
+  .spot.skip{opacity:.7}
+  .spot.skip .name{color:#93A2AB;text-decoration:line-through}
+  .spot.skip .sthumb{filter:grayscale(1)opacity(.8)}
+  .hotel-link{color:#3A6076;text-decoration:none;border-bottom:1px dashed rgba(58,96,118,.4)}
+  /* embedded buy strip */
+  .buy-strip{
+    margin:2px 18px 12px;padding:11px 13px;border-radius:12px;
+    background:linear-gradient(120deg,rgba(200,169,110,.16),rgba(111,216,220,.14));
+    border:1px solid rgba(200,169,110,.32);
+  }
+  .buy-strip.main{
+    background:linear-gradient(120deg,rgba(18,48,73,.1),rgba(228,52,42,.1));
+    border-color:rgba(228,52,42,.35);
+  }
+  .bs-title{
+    font-size:11.5px;font-weight:700;letter-spacing:.08em;color:#8A6D34;
+    margin-bottom:9px;display:flex;gap:6px;align-items:center;
+  }
+  .buy-strip.main .bs-title{color:#B5241C}
+  .buy-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .buy-chip{
+    display:inline-flex;align-items:center;gap:5px;
+    background:#fff;border:1px solid rgba(18,48,73,.15);border-radius:999px;
+    padding:6px 11px;font-size:12.5px;color:var(--ink);cursor:pointer;
+    text-decoration:none;transition:border-color .2s,transform .1s;
+  }
+  .buy-chip:hover{border-color:var(--deep)}
+  .buy-chip:active{transform:scale(.96)}
+  .buy-chip .em{font-size:14px}
+  .buy-chip.bought{opacity:.5;text-decoration:line-through}
+  .card.flash{animation:flash 1.7s ease}
+  @keyframes flash{
+    0%,100%{box-shadow:0 18px 40px rgba(4,14,24,.45)}
+    28%{box-shadow:0 0 0 3px var(--aqua),0 18px 40px rgba(4,14,24,.55)}
+  }
+  .spot .tag{
+    margin-left:auto;flex:none;font-size:10.5px;padding:2px 8px;border-radius:999px;
+    letter-spacing:.05em;
+  }
+  .spot .tag.x{background:#EBEDEF;color:#93A2AB}
+  .spot .tag.dq{background:#123049;color:#6FD8DC}
+  .spot .tag.game{background:#E4342A;color:#fff}
+  .trip-note{
+    max-width:560px;margin:16px auto 0;padding:14px 20px;
+    background:rgba(111,216,220,.1);border-radius:12px;
+    font-size:12.5px;line-height:1.75;color:var(--aqua-soft);
+  }
+  /* edit toolbar + controls */
+  .trip-toolbar{max-width:560px;margin:0 auto 4px;padding:0 16px;display:flex;gap:8px}
+  .edit-btn,.reset-btn{
+    border:none;cursor:pointer;font-family:inherit;font-weight:700;
+    font-size:13px;letter-spacing:.05em;padding:9px 15px;border-radius:10px;
+  }
+  .edit-btn{background:rgba(234,246,247,.14);color:var(--aqua-soft)}
+  .edit-btn.on{background:var(--gold);color:#2A2010}
+  .reset-btn{background:rgba(228,52,42,.16);color:#F3B4AF}
+  .spot .ctrls{display:none;gap:4px;flex:none;margin-left:auto}
+  .editing .spot .ctrls{display:flex}
+  .editing .spot .name{pointer-events:none}
+  .editing .spot .sthumb{pointer-events:none}
+  .editing .spot .tag{display:none}
+  .ctrl{
+    width:30px;height:30px;border:none;border-radius:8px;cursor:pointer;
+    font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;
+    background:#EAF0F2;color:var(--deep);
+  }
+  .ctrl.del{background:#FBE4E2;color:#C0281C}
+  .ctrl:active{transform:scale(.9)}
+  .ctrl:disabled{opacity:.3;cursor:default}
+  .addspot{display:none;padding:6px 2px 2px}
+  .editing .addspot{display:block}
+  .addspot-row{display:flex;gap:7px}
+  .addspot input{
+    flex:1;border:1px solid rgba(18,48,73,.2);border-radius:9px;
+    padding:9px 11px;font-size:14px;font-family:inherit;color:var(--ink);min-width:0;
+  }
+  .addspot input:focus{outline:none;border-color:var(--deep)}
+  .addspot .add-go{
+    border:none;background:var(--deep);color:#fff;border-radius:9px;
+    padding:0 14px;font-weight:700;cursor:pointer;font-size:14px;flex:none;
+  }
+  #undoBar{
+    position:fixed;left:50%;bottom:20px;transform:translate(-50%,140%);
+    background:var(--night);color:var(--foam);border:1px solid rgba(111,216,220,.3);
+    border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:14px;
+    font-size:13.5px;box-shadow:0 12px 34px rgba(0,0,0,.5);z-index:99;
+    transition:transform .28s ease;max-width:90vw;
+  }
+  #undoBar.show{transform:translate(-50%,0)}
+  #undoBtn{
+    border:none;background:var(--aqua);color:#082027;font-weight:700;
+    border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;flex:none;
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🛍️ My Buy List</h1>
-  <div class="tabs">
-    <div class="tab active" data-tab="items">🛒 Buy List</div>
-    <div class="tab" data-tab="popups">🏪 Pop-up Stores</div>
-  </div>
+  <p class="eyebrow">Jul 19–30 · Osaka · FFX 25th Anniversary</p>
+  <h1>七月日本行購物清單<small>ファイナルファンタジーX　25周年記念</small></h1>
+  <svg class="wave-rule" viewBox="0 0 120 14" fill="none" aria-hidden="true">
+    <path d="M0 7 Q10 1 20 7 T40 7 T60 7 T80 7 T100 7 T120 7" stroke="#6FD8DC" stroke-width="1.6"/>
+  </svg>
 </header>
 
-<div class="toolbar">
-  <input class="search" id="search" type="search" placeholder="Search name, place…">
-  <div class="filters" id="filters">
-    <span class="chip active" data-filter="all">All</span>
-    <span class="chip" data-filter="to-buy">To buy</span>
-    <span class="chip" data-filter="bought">Bought</span>
-  </div>
+<div class="tabs">
+  <button class="tab active" data-panel="shop">🛒 購物清單</button>
+  <button class="tab" data-panel="trip">🗺️ 行程</button>
 </div>
 
-<main id="content"><div class="empty">Loading…</div></main>
+<section class="panel active" id="panel-shop">
+<p class="progress" id="progress">已購 0 / 6</p>
 
-<div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src="" alt=""></div>
+<main>
+
+  <!-- Item 1 -->
+  <article class="card" id="item1">
+    <div class="thumb">
+      <span class="badge general">一般流通・唱片行可買</span>
+      <img src="https://www.jp.square-enix.com/music/lineup/assets/img/248b97e4e999cac001444a85ad1da3bfdfb0b7ea.jpg"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="FINAL FANTASY X LP Vinyl Set -Eternal Calm- 商品圖：透明海色雙黑膠與野村哲也繪封面">
+    </div>
+    <div class="body">
+      <h2 class="name">FINAL FANTASY X<br>LP Vinyl Set -Eternal Calm-</h2>
+      <p class="price"><b>¥9,350</b><span class="twd">≈ NT$1,870</span><span>含稅（¥8,500+稅）</span></p>
+      <p class="meta">2LP 黑膠｜20 首精選曲｜野村哲也 25 週年新繪封面｜附全 OST MP3 下載碼｜品番 SQEX-11235-6</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span><b>SQUARE ENIX POP UP STORE 大丸心齋橋店</b>（本館9F 活動空間）— 指定購買點</span></div>
+        <div class="row"><span class="dot">◆</span><span>備案：大阪 Tower Records（梅田NU茶屋町）等一般唱片行</span></div>
+        <div class="row"><span class="dot">◆</span><span>線上：Square Enix e-STORE、CD Japan、Amazon.co.jp</span></div>
+      </div>
+      <div class="warn">✅ POP UP 檔期 7/3～8/30，行程期間營業中。買這張（¥9,350）就達到 ¥6,600 門檻，可拿隨機橡膠杯墊 1 枚（全8種，送完為止）。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item1">標記為已購 ✓</button>
+        <a class="link-btn" href="https://www.jp.square-enix.com/music/en/lineup/item/SQEX-11235-6.html" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+
+  <!-- Item 2 -->
+  <article class="card" id="item2">
+    <div class="thumb">
+      <span class="badge general">轉蛋・全國鋪貨</span>
+      <img src="https://bushiroad-store.com/cdn/shop/files/THEBOX_BushiroadTHEBOXSkaterJOHN___ari_pack_800x.jpg?v=1773824965"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="Skater JOHN フィギュアキーホルダー 商品圖">
+    </div>
+    <div class="body">
+      <h2 class="name">Skater JOHN<br>フィギュアキーホルダー（轉蛋）</h2>
+      <p class="price"><b>¥500</b><span class="twd">≈ NT$100</span><span>／轉・全5種（集齊約¥2,500／NT$500）</span></p>
+      <p class="meta">Bushiroad Creative（ブシカプ）｜約50mm 附球鏈｜Flying・Cool・Relax・Let's Go!・Hip Hop John｜2026年5月發售</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span>大阪大型扭蛋店：<b>ガシャポンのデパート</b>（難波等）、<b>#C-pla</b>、Yodobashi 梅田扭蛋區——機台位置不固定，看到就轉</span></div>
+        <div class="row"><span class="dot">◆</span><span>東京専門店 <b>SKATER JOHN Square</b>（東小金井）有補貨，但在東京</span></div>
+      </div>
+      <div class="warn">💡 不想賭運氣的話：官方 7/31 推出 BUSHIROAD THE BOX 盒裝版（1盒6包保證集齊全5種，每包¥660）——就在你回程隔天發售，可線上預購寄台灣代購或下次帶。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item2">標記為已購 ✓</button>
+        <a class="link-btn" href="https://bushiroad-store.com/products/2000284828848" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+  <!-- Item 3 -->
+  <article class="card" id="item3">
+    <div class="thumb">
+      <span class="badge general">轉蛋・全國鋪貨</span>
+      <img src="https://bandai-a.akamaihd.net/bc/img/model/xl/1000251559_1.jpg"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="ドラゴンクエスト まちぼうけ～しかし たすけは こなかった～ 商品圖：流淚的史萊姆等5款怪物">
+    </div>
+    <div class="body">
+      <h2 class="name">勇者鬥惡龍 まちぼうけ<br>～但是都沒有人來幫忙～</h2>
+      <p class="price"><b>¥400</b><span class="twd">≈ NT$80</span><span>／轉・全5種（集齊約¥2,000／NT$400）</span></p>
+      <p class="meta">BANDAI ガシャポン｜史萊姆・木乃伊男・泥手・徬徨鎧甲・麻痺水母｜2026年6月第3週發售</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span>全國扭蛋機鋪貨——大阪同樣去<b>ガシャポンのデパート</b>（難波）、<b>#C-pla</b>、Yodobashi 梅田找</span></div>
+        <div class="row"><span class="dot">◆</span><span>精準找機台：官方「<b>ガシャポンどこ？</b>」查詢有貨店舖（下方官方頁面內建）</span></div>
+      </div>
+      <div class="warn">⚠️ 這款超熱門，發售後多家店秒空、靠補貨輪流上架。到大阪先用官方查詢確認機台，看到就轉——跟 Skater John 可以排同一趟扭蛋行程。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item3">標記為已購 ✓</button>
+        <a class="link-btn" href="https://gashapon.jp/products/detail.php?jan_code=4582769979552000" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+  <!-- Item 4 -->
+  <article class="card" id="item4">
+    <div class="thumb">
+      <span class="badge limited">數量限定・易缺貨</span>
+      <img src="https://jp.rohto.com/-/media/rohto/products/zi/dragonquest/package_zi_b.png"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="ロートジー キングスライム型目薬 商品圖">
+    </div>
+    <div class="body">
+      <h2 class="name">ロートジー<br>キングスライム型目薬</h2>
+      <p class="price"><b>¥715～935</b><span class="twd">≈ NT$143～187</span><span>含稅（依款式）</span></p>
+      <p class="meta">DQ 40 週年聯名第3彈｜王冠瓶身16mL大容量｜第2類醫藥品｜三款：ロートジーb ¥715／コンタクトb ¥825／プロd ¥935｜2026/6/10發售</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span>全國藥妝店：<b>松本清 マツキヨ</b>、<b>Sundrug</b>、<b>大國藥妝</b>、<b>KOKUMIN</b>——大阪心齋橋筋、道頓堀一帶密集</span></div>
+        <div class="row"><span class="dot">◆</span><span>線上：Amazon.co.jp、樂天、DMM</span></div>
+      </div>
+      <div class="warn">⚠️ 數量限定商品，6/10 發售當天就有店家秒空。你 7/19 才到，藥妝店現貨機率偏低——看到就直接拿，別想說晚點再買。想保險就行前上 Amazon.co.jp 下單寄飯店。這是醫藥品，台灣入境有數量限制（個人自用一般以 24 瓶為限），大量購買要留意。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item4">標記為已購 ✓</button>
+        <a class="link-btn" href="https://jp.rohto.com/zi/campaign_dragonquest/" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+  <!-- Item 5 -->
+  <article class="card" id="item5">
+    <div class="thumb">
+      <span class="badge general">Zoff門市・全國</span>
+      <img src="https://www.zoff.co.jp/shop/contents/images/dragonquest/mainvisual.jpg"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="Zoff DRAGON QUEST 聯名眼鏡與眼鏡史萊姆吊飾">
+    </div>
+    <div class="body">
+      <h2 class="name">Zoff｜DRAGON QUEST<br>眼鏡 & 周邊</h2>
+      <p class="price"><b>¥900～16,600</b><span class="twd">≈ NT$180～3,320</span><span>周邊平價・鏡框較高</span></p>
+      <p class="meta">DQ 40 週年聯名｜2026/6/5發售。周邊：眼鏡布 ¥900～1,500、眼鏡史萊姆吊飾（マスコットクリーナー）¥2,500、金屬史萊姆眼鏡盒 ¥2,000、鏡框8型 ¥11,100～16,600（含鏡片）</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span>大阪 Zoff 門市（心齋橋、梅田各大百貨/商場，排除 outlet 店）</span></div>
+        <div class="row"><span class="dot">◆</span><span>線上：Zoff 公式線上商店（部分「アイテム」款為 EC 限定）</span></div>
+      </div>
+      <div class="warn">💡 你截圖那顆「眼鏡史萊姆吊飾」¥2,500，是常態鋪貨的周邊、比鏡框好入手。若只想收吊飾/眼鏡布，門市直接買即可；想配鏡框則要留現場驗光配鏡時間。部分店可能缺特定款，官網「店頭の在庫を探す」可先查大阪門市庫存。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item5">標記為已購 ✓</button>
+        <a class="link-btn" href="https://www.zoff.co.jp/shop/contents/dragonquest.aspx" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+  <!-- Item 6 -->
+  <article class="card" id="item6">
+    <div class="thumb">
+      <span class="badge general">LOFT・MoMA 設計雑貨</span>
+      <img src="https://www.loft.co.jp/shop_assets/img/goods/L/4595641086026-L.jpg"
+           referrerpolicy="no-referrer" loading="lazy"
+           onerror="this.parentNode.classList.add('noimg')"
+           alt="Instant Disk Audio 壁掛 CD 播放器">
+    </div>
+    <div class="body">
+      <h2 class="name">Instant Disk Audio<br>壁掛 CD 播放器（CP1）</h2>
+      <p class="price"><b>¥18,700</b><span class="twd">≈ NT$3,740</span><span>含稅（LOFT／MoMA 版）</span></p>
+      <p class="meta">km5／MoMA｜Bluetooth 5.0・鋰電池續航 7–8 小時・可放歌詞卡當擺飾｜Clear／Silver／Black｜品番 4595641086026</p>
+      <div class="where">
+        <div class="row"><span class="dot">◆</span><span><b>LOFT</b>（梅田・なんば・心齋橋・神戶・京都皆有分店）— 你截圖看到的通路</span></div>
+        <div class="row"><span class="dot">◆</span><span>蔦屋家電・Tokyu Hands・MoMA Design Store・km5 官方</span></div>
+      </div>
+      <div class="warn">⚠️ 本體不含喇叭／USB 充電器／壁掛金具。要像圖中壁掛需另購「壁掛アクセサリー」（約 ¥1,100）。日本買比台灣代購（約 NT$4,780）便宜、還能挑顏色。全國有售，神戶／京都遇到 LOFT 就能先收。</div>
+      <div class="actions">
+        <button class="buy-btn" data-target="item6">標記為已購 ✓</button>
+        <a class="link-btn" href="https://www.loft.co.jp/store/g/g4595641086026/" target="_blank" rel="noopener">官方頁面</a>
+      </div>
+    </div>
+  </article>
+
+</main>
+
+<footer>
+  💡 行程重點：7/19 正是 FFX 誕生 25 週年當天。<br>
+  同館 9F 另有「FFX × DAIMARU MATSUZAKAYA COLLECTION」限定服飾雜貨店，<br>
+  但只開到 <b>7/21</b>——想逛要排在抵達頭三天（7/19～21）。<br>
+  兩店互持購物收據可換額外特典（滿額隨機贈品，送完為止）。
+</footer>
+</section>
+
+<section class="panel" id="panel-trip">
+<div class="trip-toolbar">
+  <button id="editToggle" class="edit-btn">✏️ 編輯模式</button>
+  <button id="resetTrip" class="reset-btn" hidden>↺ 重設行程</button>
+</div>
+<div class="trip" id="trip"></div>
+<p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps（餐廳、商店多無圖庫，顯示 emoji）。✏️「編輯模式」可排序、刪除、新增地點，變更存在此裝置瀏覽器（換裝置或清快取會回預設）。</p>
+</section>
 
 <script>
-let DATA = { items: [], popupStores: [] };
-let tab = 'items';
-let filter = 'all';
-let query = '';
-const localBought = new Set(JSON.parse(localStorage.getItem('buylist-bought') || '[]'));
+  // ---------- default itinerary data ----------
+  const DEFAULT_TRIP = [
+    { date:'7/19 · Day 1', place:'神戶 Kobe', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'✈️ 桃園 → 大阪關西機場（11:05–14:50）',q:'関西国際空港',wiki:'関西国際空港',emoji:'✈️'},
+        {name:'坐船到神戶・取車',q:'神戸空港 ベイシャトル',wiki:'',emoji:'⛴️'},
+        {name:'晚餐：Merican Kobe',q:'Merican Kobe 神戸',wiki:'',emoji:'🍽️'},
+        {name:'布引香草園纜車・夜景',q:'神戸布引ハーブ園',wiki:'神戸布引ハーブ園',emoji:'🌃'} ] },
+    { date:'7/20 · Day 2', place:'神戶 Kobe', src:'booking',
+      hotel:'ANA Crowne Plaza Kobe by IHG', hotelq:'ANA クラウンプラザホテル神戸',
+      buyStrip:{ cls:'', title:'👀 沿途先買・避免大阪缺貨', chips:[
+        {item:'item4',em:'👑',label:'史萊姆目薬'},{item:'item2',em:'🐕',label:'Skater John 扭蛋'},
+        {item:'item3',em:'💧',label:'まちぼうけ 扭蛋'},{item:'item5',em:'👓',label:'Zoff 眼鏡周邊'},
+        {item:'item6',em:'📀',label:'CP1 CD播放器'} ]},
+      spots:[
+        {name:'早餐：北野坂西村珈琲店',q:'にしむら珈琲店 北野坂店',wiki:'',emoji:'☕'},
+        {name:'異人館街：風見鶏本舗',q:'風見鶏本舗 神戸',wiki:'風見鶏の館',emoji:'🏛️'},
+        {name:'神戶臨海樂園／馬賽克廣場',q:'神戸ハーバーランド umie モザイク',wiki:'神戸ハーバーランド',emoji:'🎡'} ] },
+    { date:'7/21 · Day 3', place:'神戶 Kobe', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'生田神社',q:'生田神社 神戸',wiki:'生田神社',emoji:'⛩️'},
+        {name:'11:00 HUMAN MADE',q:'HUMAN MADE 神戸',wiki:'',emoji:'🧢'} ] },
+    { date:'7/22 · Day 4', place:'姬路 Himeji', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'姬路城',q:'姫路城',wiki:'姫路城',emoji:'🏯'},
+        {name:'中餐：讃岐うどん めんめ',q:'讃岐うどん めんめ 姫路',wiki:'',emoji:'🍜'},
+        {name:'點心：わらび餅専門店 門藤 姫路本店',q:'門藤 姫路本店',wiki:'',emoji:'🍡'},
+        {name:'姫路城おひざもとしろプリン',q:'おひざもとしろプリン 姫路',wiki:'',emoji:'🍮'},
+        {name:'東条湖おもちゃ王国',q:'東条湖おもちゃ王国',wiki:'東条湖おもちゃ王国',emoji:'🎠'},
+        {name:'晚餐：金太郎迴轉壽司 東浦店',q:'金太郎 回転寿司 東浦店',wiki:'',emoji:'🍣'} ] },
+    { date:'7/23 · Day 5', place:'淡路島 Awaji', src:'官網',
+      hotel:'淡路島リゾートホテル DiosHotel', hotelq:'淡路島リゾートホテル ディオス',
+      spots:[
+        {name:'Awaji Highway Oasis',q:'淡路ハイウェイオアシス',wiki:'淡路ハイウェイオアシス',emoji:'🛣️'},
+        {name:'明石海峽大橋',q:'明石海峡大橋',wiki:'明石海峡大橋',emoji:'🌉'},
+        {name:'HELLO KITTY APPLE HOUSE',q:'HELLO KITTY APPLE HOUSE 淡路',wiki:'',emoji:'🍎'},
+        {name:'Hello Kitty Smile',q:'HELLO KITTY SMILE 淡路島',wiki:'',emoji:'🎀'},
+        {name:'二次元之森 ニジゲンノモリ',q:'ニジゲンノモリ',wiki:'ニジゲンノモリ',emoji:'🌲'} ] },
+    { date:'7/24 · Day 6', place:'淡路島 Awaji', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'フロリックシー／慶野松原海水浴場',q:'慶野松原海水浴場',wiki:'慶野松原',emoji:'🏖️'},
+        {name:'大鳴門橋紀念館・渦之丘／渦潮觀光船',q:'うずしおクルーズ',wiki:'大鳴門橋',emoji:'🌊'},
+        {name:'洲本市民廣場・勇者鬥惡龍紀念碑',q:'ドラゴンクエスト記念碑 洲本',tag:'<span class="tag dq">DQ</span>',wiki:'',emoji:'🗿'},
+        {name:'淡路島Onion Kitchen 渦町Terrace店',q:'あわじ島オニオンキッチン うずまちテラス',wiki:'',emoji:'🍔'} ] },
+    { date:'7/25 · Day 7', place:'高松 Takamatsu', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'四國水族館',q:'四国水族館',wiki:'四国水族館',emoji:'🐬'},
+        {name:'栗林公園',q:'栗林公園',wiki:'栗林公園',emoji:'🌸'},
+        {name:'屋島山上',q:'屋島山上',wiki:'屋島',emoji:'⛰️'} ] },
+    { date:'7/26 · Day 8', place:'京都 Kyoto', src:'agoda',
+      hotel:'HOTEL MASTAY jingumichi', hotelq:'HOTEL MASTAY jingumichi 京都',
+      buyStrip:{ cls:'', title:'👀 沿途先買・避免大阪缺貨', chips:[
+        {item:'item4',em:'👑',label:'史萊姆目薬'},{item:'item2',em:'🐕',label:'Skater John 扭蛋'},
+        {item:'item3',em:'💧',label:'まちぼうけ 扭蛋'},{item:'item5',em:'👓',label:'Zoff 眼鏡周邊'},
+        {item:'item6',em:'📀',label:'CP1 CD播放器'} ]},
+      spots:[] },
+    { date:'7/27 · Day 9', place:'宇治 Uji', src:'', hotel:'', hotelq:'',
+      spots:[
+        {name:'任天堂博物館',q:'任天堂ミュージアム',tag:'<span class="tag game">已預約 17:30</span>',wiki:'任天堂ミュージアム',emoji:'🎮'} ] },
+    { date:'7/28–7/30 · Day 10', place:'大阪 Osaka', src:'booking',
+      hotel:'住一難波店　｜　回程 CX565', hotelq:'住一 難波',
+      buyStrip:{ cls:'main', title:'🛒 採買主場・離境前最後機會', chips:[
+        {item:'item1',em:'💿',label:'FFX 黑膠'},{item:'item5',em:'👓',label:'Zoff 眼鏡周邊'},
+        {item:'item4',em:'👑',label:'史萊姆目薬'},{item:'item2',em:'🐕',label:'Skater John 扭蛋'},
+        {item:'item3',em:'💧',label:'まちぼうけ 扭蛋'},{item:'item6',em:'📀',label:'CP1 CD播放器'} ]},
+      spots:[
+        {name:'SQUARE ENIX POP UP STORE 大丸心齋橋',q:'大丸心斎橋店',sub:'💿 FFX 黑膠・限定特典',wiki:'',emoji:'🎮'},
+        {name:'ガシャポンのデパート 難波',q:'ガシャポンのデパート なんば',sub:'扭蛋主場・兩款一次收',wiki:'',emoji:'🎰'},
+        {name:'Zoff 心齋橋店',q:'Zoff 心斎橋',sub:'DQ 眼鏡周邊',wiki:'',emoji:'👓'},
+        {name:'道頓堀・心齋橋筋 藥妝店',q:'マツモトキヨシ 道頓堀',sub:'史萊姆目薬到處找',wiki:'',emoji:'💊'} ] }
+  ];
 
-fetch('data.json?t=' + Date.now())
-  .then(r => r.json())
-  .then(d => { DATA = d; render(); })
-  .catch(() => { document.getElementById('content').innerHTML = '<div class="empty">Could not load data.json</div>'; });
+  const STORE_KEY = 'ffx_trip_v2';
+  let TRIP;
+  try { const s = localStorage.getItem(STORE_KEY); TRIP = s ? JSON.parse(s) : structuredClone(DEFAULT_TRIP); }
+  catch(e){ TRIP = structuredClone(DEFAULT_TRIP); }
+  function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(TRIP)); } catch(e){} }
 
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  tab = t.dataset.tab;
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-  document.getElementById('filters').style.display = tab === 'items' ? 'flex' : 'none';
-  render();
-}));
+  const maps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-document.getElementById('filters').addEventListener('click', e => {
-  if (!e.target.dataset.filter) return;
-  filter = e.target.dataset.filter;
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === e.target));
-  render();
-});
-
-document.getElementById('search').addEventListener('input', e => { query = e.target.value.toLowerCase(); render(); });
-
-function isBought(item) { return item.status === 'bought' || localBought.has(item.id); }
-
-function toggleBought(id) {
-  if (localBought.has(id)) localBought.delete(id); else localBought.add(id);
-  localStorage.setItem('buylist-bought', JSON.stringify([...localBought]));
-  render();
-}
-
-function popupStatus(s) {
-  const today = new Date().toISOString().slice(0, 10);
-  if (s.end && today > s.end) return ['ended', 'Ended'];
-  if (s.start && today < s.start) return ['upcoming', 'Upcoming'];
-  return ['now-open', 'Now open'];
-}
-
-function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-function showImage(src) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').style.display = 'flex';
-}
-
-function thumbHtml(image, emoji) {
-  return image
-    ? `<div class="thumb" onclick="showImage('${esc(image)}')"><img src="${esc(image)}" alt=""></div>`
-    : `<div class="thumb">${emoji}</div>`;
-}
-
-function render() {
-  const el = document.getElementById('content');
-  if (tab === 'items') {
-    let list = DATA.items.filter(i =>
-      (i.name + ' ' + i.place + ' ' + (i.notes || '')).toLowerCase().includes(query));
-    if (filter === 'to-buy') list = list.filter(i => !isBought(i));
-    if (filter === 'bought') list = list.filter(i => isBought(i));
-    if (!list.length) {
-      el.innerHTML = '<div class="empty">Nothing here yet.<br>Send Claude a photo of something you want to buy!</div>';
-      return;
-    }
-    const remaining = DATA.items.filter(i => !isBought(i)).length;
-    el.innerHTML = `<div class="count">${remaining} item(s) left to buy</div>` + list.map(i => {
-      const bought = isBought(i);
-      return `<div class="card${bought ? ' done' : ''}">
-        ${thumbHtml(i.image, '🛒')}
-        <div class="card-body">
-          <div class="card-title">${esc(i.name)}</div>
-          ${i.place ? `<div class="card-line"><span class="icon">📍</span><a class="maplink" href="https://www.google.com/maps/search/${encodeURIComponent(i.place)}" target="_blank" rel="noopener">${esc(i.place)}</a></div>` : ''}
-          ${i.price ? `<div class="card-line"><span class="icon">💰</span>${esc(i.price)}</div>` : ''}
-          ${i.notes ? `<div class="card-line"><span class="icon">📝</span>${esc(i.notes)}</div>` : ''}
-          <span class="badge ${bought ? 'bought' : 'to-buy'}">${bought ? '✓ Bought' : 'To buy'}</span><br>
-          <button class="bought-toggle" onclick="toggleBought('${esc(i.id)}')">${bought ? 'Mark as not bought' : 'Mark as bought'}</button>
-        </div>
+  // ---------- render ----------
+  function render(){
+    const root = document.getElementById('trip');
+    root.innerHTML = TRIP.map((seg,si) => {
+      const hotel = seg.hotelq
+        ? (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + `<a class="hotel-link" href="${maps(seg.hotelq)}" target="_blank" rel="noopener">${esc(seg.hotel)}</a>`
+        : (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + esc(seg.hotel);
+      const strip = seg.buyStrip ? `<div class="buy-strip ${seg.buyStrip.cls}">
+        <div class="bs-title">${esc(seg.buyStrip.title)}</div>
+        <div class="buy-chips">${seg.buyStrip.chips.map(c=>`<a class="buy-chip" data-item="${c.item}"><span class="em">${c.em}</span>${esc(c.label)}</a>`).join('')}</div>
+      </div>` : '';
+      const spots = seg.spots.map((sp,pi) => {
+        const sub = sp.sub ? `<span style="display:block;font-size:11px;color:#7A8B94;font-weight:400;margin-top:2px">${esc(sp.sub)}</span>` : '';
+        const wiki = sp.wiki ? ` data-wiki="${esc(sp.wiki)}"` : '';
+        return `<div class="spot ${sp.skip?'skip':''}" data-si="${si}" data-pi="${pi}">
+          <a class="sthumb" href="${maps(sp.q)}"${wiki} target="_blank" rel="noopener"><span class="ph">${sp.emoji||'📍'}</span></a>
+          <a class="name" href="${maps(sp.q)}" target="_blank" rel="noopener">${esc(sp.name)}${sub}</a>
+          ${sp.tag||''}
+          <span class="ctrls">
+            <button class="ctrl up" ${pi===0?'disabled':''} title="上移">▲</button>
+            <button class="ctrl down" ${pi===seg.spots.length-1?'disabled':''} title="下移">▼</button>
+            <button class="ctrl del" title="刪除">✕</button>
+          </span>
+        </div>`;
+      }).join('');
+      const add = `<div class="addspot"><div class="addspot-row">
+        <input type="text" placeholder="新增地點名稱…" data-add="${si}">
+        <button class="add-go" data-addgo="${si}">＋ 加入</button>
+      </div></div>`;
+      const hotelLine = (seg.hotel||seg.hotelq||seg.src) ? `<div class="seg-hotel">${hotel}</div>` : '';
+      return `<div class="seg">
+        <div class="seg-head"><span class="date">${esc(seg.date)}</span><span class="place">${esc(seg.place)}</span></div>
+        ${hotelLine}
+        ${strip}
+        <div class="spots">${spots}${add}</div>
       </div>`;
     }).join('');
-  } else {
-    const list = DATA.popupStores.filter(s =>
-      (s.name + ' ' + s.location + ' ' + (s.notes || '')).toLowerCase().includes(query));
-    if (!list.length) {
-      el.innerHTML = '<div class="empty">No pop-up stores recorded yet.<br>Tell Claude about one to add it!</div>';
-      return;
-    }
-    // now open & upcoming first, ended last
-    const rank = { 'now-open': 0, 'upcoming': 1, 'ended': 2 };
-    list.sort((a, b) => rank[popupStatus(a)[0]] - rank[popupStatus(b)[0]]);
-    el.innerHTML = list.map(s => {
-      const [cls, label] = popupStatus(s);
-      const dates = s.start || s.end ? `${s.start || '?'} → ${s.end || '?'}` : '';
-      return `<div class="card">
-        ${thumbHtml(s.image, '🏪')}
-        <div class="card-body">
-          <div class="card-title">${esc(s.name)}</div>
-          ${s.location ? `<div class="card-line"><span class="icon">📍</span><a class="maplink" href="https://www.google.com/maps/search/${encodeURIComponent(s.location)}" target="_blank" rel="noopener">${esc(s.location)}</a></div>` : ''}
-          ${dates ? `<div class="card-line"><span class="icon">📅</span>${dates}</div>` : ''}
-          ${s.notes ? `<div class="card-line"><span class="icon">📝</span>${esc(s.notes)}</div>` : ''}
-          <span class="badge ${cls}">${label}</span>
-        </div>
-      </div>`;
-    }).join('');
+    loadThumbs(root);
   }
-}
+
+  // ---------- Wikipedia thumbnails (reusable) ----------
+  const thumbCache = {};
+  function loadThumbs(scope){
+    (scope||document).querySelectorAll('.sthumb[data-wiki]').forEach(el => {
+      if(el.classList.contains('loaded')) return;
+      const title = el.dataset.wiki; if(!title) return;
+      const apply = url => { if(!url) return; const img = new Image();
+        img.onload = () => { el.style.backgroundImage = `url("${url}")`; el.classList.add('loaded'); }; img.src = url; };
+      if(thumbCache[title]){ thumbCache[title].then(apply); return; }
+      const api = 'https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+        + '&prop=pageimages&piprop=thumbnail&pithumbsize=160&redirects=1&titles=' + encodeURIComponent(title);
+      const p = fetch(api).then(r=>r.json()).then(d=>{ const pg=d&&d.query&&d.query.pages||{}; const f=Object.values(pg)[0]; return f&&f.thumbnail?f.thumbnail.source:null; }).catch(()=>null);
+      thumbCache[title] = p; p.then(apply);
+    });
+  }
+
+  // ---------- edit interactions (event delegation) ----------
+  const tripEl = document.getElementById('trip');
+  let lastDeleted = null, undoTimer = null;
+  function showUndo(name){
+    let bar = document.getElementById('undoBar');
+    if(!bar){
+      bar = document.createElement('div'); bar.id = 'undoBar';
+      bar.innerHTML = '<span id="undoText"></span><button id="undoBtn">↩ 復原</button>';
+      document.body.appendChild(bar);
+      document.getElementById('undoBtn').addEventListener('click', () => {
+        if(lastDeleted){
+          TRIP[lastDeleted.si].spots.splice(lastDeleted.pi, 0, lastDeleted.spot);
+          lastDeleted = null; save(); render(); keepEditing();
+        }
+        hideUndo();
+      });
+    }
+    document.getElementById('undoText').textContent = '已刪除「' + name + '」';
+    bar.classList.add('show');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideUndo, 5000);
+  }
+  function hideUndo(){ const b = document.getElementById('undoBar'); if(b) b.classList.remove('show'); }
+
+  tripEl.addEventListener('click', e => {
+    const chip = e.target.closest('.buy-chip');
+    if(chip){ jumpToItem(chip.dataset.item); return; }
+    const spot = e.target.closest('.spot');
+    if(e.target.closest('.ctrl') && spot){
+      const si = +spot.dataset.si, pi = +spot.dataset.pi, arr = TRIP[si].spots;
+      if(e.target.closest('.up') && pi>0){ [arr[pi-1],arr[pi]]=[arr[pi],arr[pi-1]]; }
+      else if(e.target.closest('.down') && pi<arr.length-1){ [arr[pi+1],arr[pi]]=[arr[pi],arr[pi+1]]; }
+      else if(e.target.closest('.del')){
+        lastDeleted = { si, pi, spot: arr[pi] };
+        arr.splice(pi,1);
+        showUndo(lastDeleted.spot.name);
+      }
+      save(); render(); keepEditing();
+    }
+  });
+  tripEl.addEventListener('click', e => {
+    const go = e.target.closest('[data-addgo]');
+    if(!go) return;
+    const si = +go.dataset.addgo;
+    const input = tripEl.querySelector('input[data-add="'+si+'"]');
+    const name = (input.value||'').trim(); if(!name) return;
+    TRIP[si].spots.push({name, q:name, wiki:name, emoji:'📍'});
+    save(); render(); keepEditing();
+  });
+  tripEl.addEventListener('keydown', e => {
+    if(e.key==='Enter' && e.target.matches('input[data-add]')){
+      const si = e.target.dataset.add;
+      tripEl.querySelector('[data-addgo="'+si+'"]').click();
+    }
+  });
+
+  function keepEditing(){ if(document.body.classList.contains('editing-on')) tripEl.classList.add('editing'); }
+
+  const editToggle = document.getElementById('editToggle');
+  const resetBtn = document.getElementById('resetTrip');
+  editToggle.addEventListener('click', () => {
+    const on = tripEl.classList.toggle('editing');
+    document.body.classList.toggle('editing-on', on);
+    editToggle.classList.toggle('on', on);
+    editToggle.textContent = on ? '✓ 完成編輯' : '✏️ 編輯模式';
+    resetBtn.hidden = !on;
+  });
+  let resetArmed = false, resetTimer = null;
+  resetBtn.addEventListener('click', () => {
+    if(!resetArmed){
+      resetArmed = true;
+      resetBtn.textContent = '⚠ 再按一次確認重設';
+      resetTimer = setTimeout(() => { resetArmed = false; resetBtn.textContent = '↺ 重設行程'; }, 3000);
+      return;
+    }
+    clearTimeout(resetTimer); resetArmed = false; resetBtn.textContent = '↺ 重設行程';
+    TRIP = structuredClone(DEFAULT_TRIP); save(); render(); keepEditing();
+  });
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+  });
+
+  // ---------- shopping jump + flash ----------
+  function jumpToItem(id){
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.tab[data-panel="shop"]').classList.add('active');
+    document.getElementById('panel-shop').classList.add('active');
+    const card = document.getElementById(id); if(!card) return;
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+    setTimeout(() => card.classList.remove('flash'), 1800);
+  }
+
+  // ---------- shopping counter ----------
+  const total = 6; let done = 0;
+  document.querySelectorAll('.buy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = document.getElementById(btn.dataset.target);
+      const isDone = card.classList.toggle('done');
+      btn.textContent = isDone ? '已購入 🎉（點擊取消）' : '標記為已購 ✓';
+      done += isDone ? 1 : -1;
+      document.getElementById('progress').textContent =
+        done === total ? '已購 ' + done + ' / ' + total + ' — 全部到手！' : '已購 ' + done + ' / ' + total;
+    });
+  });
+
+  // ---------- init ----------
+  render();
 </script>
+
 </body>
 </html>
