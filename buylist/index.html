@@ -384,6 +384,29 @@
   #spotSave{background:var(--deep);color:#fff}
   #spotCancel{background:#E7EDEF;color:var(--deep)}
   .ctrl.edit{background:#E7EFF2;color:var(--deep)}
+  /* ===== item modal photo picker ===== */
+  .photo-box{
+    width:100%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;margin-bottom:8px;
+    background:linear-gradient(160deg,#EAF6F7,#D6EEF0);display:flex;align-items:center;justify-content:center;
+  }
+  .photo-box img{width:100%;height:100%;object-fit:contain}
+  .photo-ph{color:#5A7484;font-size:14px}
+  .photo-actions{display:flex;gap:8px;margin-bottom:2px}
+  .photo-actions button{
+    border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;
+    background:#E7EFF2;color:var(--deep);
+  }
+  #itemPhotoPick{flex:1}
+  #itemPhotoClear{flex:none;background:#FBE4E2;color:#C0281C;padding:11px 14px}
+  #itemSave{background:var(--deep);color:#fff}
+  #itemCancel{background:#E7EDEF;color:var(--deep)}
+  .card-edit{
+    position:absolute;top:10px;right:50px;z-index:3;
+    width:32px;height:32px;border:none;border-radius:50%;cursor:pointer;
+    background:rgba(18,48,73,.85);color:#fff;font-size:15px;line-height:1;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  .card-edit:active{transform:scale(.9)}
 </style>
 </head>
 <body>
@@ -422,21 +445,6 @@
 
 <div class="add-item-wrap">
   <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
-  <div class="add-item-form" id="addItemForm" hidden>
-    <div class="ai-linkrow">
-      <input type="url" placeholder="貼上商品連結自動帶入（可選）" data-f="url">
-      <button type="button" class="ai-parse" id="addItemParse">🔗 解析</button>
-    </div>
-    <div class="link-preview" id="aiPreview"><img id="aiPreviewImg" alt=""><span id="aiPreviewText"></span></div>
-    <input type="text" placeholder="物品名稱 *" data-f="name">
-    <input type="text" placeholder="在哪買（店名／地點）" data-f="place">
-    <input type="text" placeholder="價格（可留空，例：¥500 / NT$100）" data-f="price">
-    <input type="text" placeholder="備註（可留空）" data-f="notes">
-    <div class="add-item-actions">
-      <button class="ai-save" id="addItemSave">加入清單</button>
-      <button class="ai-cancel" id="addItemCancel">取消</button>
-    </div>
-  </div>
 </div>
 
 <footer>
@@ -473,6 +481,35 @@
     <div class="modal-actions">
       <button type="button" id="spotSave">加入</button>
       <button type="button" id="spotCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="itemModal" hidden>
+  <div class="modal">
+    <h3 id="itemModalTitle">新增物品</h3>
+    <div class="photo-box">
+      <img id="itemPhotoPreview" alt="" hidden>
+      <div id="itemPhotoPlaceholder" class="photo-ph">🛒 尚未加入照片</div>
+    </div>
+    <div class="photo-actions">
+      <button type="button" id="itemPhotoPick">📷 拍照／選擇照片</button>
+      <button type="button" id="itemPhotoClear" hidden>移除</button>
+    </div>
+    <input type="file" id="itemPhotoInput" accept="image/*" hidden>
+    <label>物品名稱 *</label>
+    <input type="text" id="itemName" placeholder="例：史萊姆目薬">
+    <label>價格（可留空）</label>
+    <input type="text" id="itemPrice" placeholder="例：¥715 / NT$150">
+    <label>在哪買（店名／地點，可留空）</label>
+    <input type="text" id="itemPlace" placeholder="例：松本清 道頓堀店">
+    <label>備註（可留空）</label>
+    <input type="text" id="itemNotes" placeholder="例：數量限定，看到就買">
+    <label>官方連結（可留空）</label>
+    <input type="url" id="itemLink" placeholder="https://…">
+    <div class="modal-actions">
+      <button type="button" id="itemSave">加入</button>
+      <button type="button" id="itemCancel">取消</button>
     </div>
   </div>
 </div>
@@ -914,6 +951,7 @@
     const warn  = it.warn ? `<div class="warn">${it.warn}</div>` : '';
     const link  = it.link ? `<a class="link-btn" href="${it.link}" target="_blank" rel="noopener">官方頁面</a>` : '';
     return `<article class="card${bought?' done':''}" id="card-${it.id}" data-item="${it.id}">
+      <button class="card-edit" data-edititem="${it.id}" title="編輯物品">✎</button>
       <button class="card-del" data-delitem="${it.id}" title="刪除物品">✕</button>
       ${thumbHtml(it)}
       <div class="body">
@@ -953,6 +991,7 @@
     const chip = e.target.closest('[data-person]'); if(chip){ activePerson = chip.dataset.person; shopRender(); return; }
     if(e.target.closest('#addPerson')){ addPerson(); return; }
     const buy = e.target.closest('[data-buy]'); if(buy){ toggleBuy(buy.dataset.buy); return; }
+    const ei = e.target.closest('[data-edititem]'); if(ei){ openItemModal(ei.dataset.edititem); return; }
     const di = e.target.closest('[data-delitem]'); if(di){ deleteItemClick(di.dataset.delitem); return; }
   });
 
@@ -1006,49 +1045,82 @@
     shopRender();
   }
 
-  // add-item form
-  const addItemForm = document.getElementById('addItemForm');
-  const fld = f => addItemForm.querySelector('[data-f="'+f+'"]');
-  document.getElementById('addItemToggle').addEventListener('click', () => { addItemForm.hidden = !addItemForm.hidden; if(!addItemForm.hidden) fld('name').focus(); });
-  document.getElementById('addItemCancel').addEventListener('click', () => { clearItemForm(); addItemForm.hidden = true; });
-  document.getElementById('addItemSave').addEventListener('click', saveNewItem);
-  document.getElementById('addItemParse').addEventListener('click', parseItemLink);
-  addItemForm.addEventListener('keydown', e => {
-    if(e.key!=='Enter') return; e.preventDefault();
-    if(e.target.matches('[data-f="url"]')) parseItemLink(); else saveNewItem();
-  });
-  async function parseItemLink(){
-    const url = (fld('url').value||'').trim(); if(!url){ fld('url').focus(); return; }
-    toast('解析中…');
-    try{
-      const d = await parseLink(url);
-      if(d.title && !fld('name').value.trim()) fld('name').value = d.title;
-      if(d.publisher && !fld('place').value.trim()) fld('place').value = d.publisher;
-      addItemForm.dataset.image = d.image || '';
-      addItemForm.dataset.link  = d.url || url;
-      const pv = document.getElementById('aiPreview'), im = document.getElementById('aiPreviewImg');
-      if(d.image){ im.src = d.image; im.style.display = ''; } else { im.style.display = 'none'; }
-      document.getElementById('aiPreviewText').textContent = d.title ? (d.title + (d.publisher?(' · '+d.publisher):'')) : '已取得連結';
-      pv.classList.add('show');
-      toast('已帶入，補上價格後即可加入');
-    }catch(e){ toast('解析失敗，請手動輸入'); }
+  // ---------- item modal (add / edit, with on-device photo) ----------
+  const stripTags = s => String(s||'')
+    .replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,'')
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"')
+    .replace(/\s+/g,' ').trim();
+  let itemModalCtx = null, itemPhoto = '';
+  function showItemPhoto(){
+    const img = document.getElementById('itemPhotoPreview'), ph = document.getElementById('itemPhotoPlaceholder'), clr = document.getElementById('itemPhotoClear');
+    if(itemPhoto){ img.src = itemPhoto; img.hidden = false; ph.hidden = true; clr.hidden = false; }
+    else { img.removeAttribute('src'); img.hidden = true; ph.hidden = false; clr.hidden = true; }
   }
-  function clearItemForm(){
-    ['name','place','price','notes','url'].forEach(f => { const el = fld(f); if(el) el.value = ''; });
-    delete addItemForm.dataset.image; delete addItemForm.dataset.link;
-    const pv = document.getElementById('aiPreview'); if(pv) pv.classList.remove('show');
+  function openItemModal(id){
+    let it = null;
+    if(id){ for(const p of PEOPLE){ const f = p.items.find(x=>x.id===id); if(f){ it = f; break; } } }
+    itemModalCtx = { id: id||null };
+    itemPhoto = it ? (it.image||'') : '';
+    document.getElementById('itemModalTitle').textContent = it ? '編輯物品' : '新增物品';
+    document.getElementById('itemSave').textContent = it ? '儲存' : '加入';
+    document.getElementById('itemName').value  = it ? stripTags(it.name) : '';
+    document.getElementById('itemPrice').value = it ? (it.price||'') : '';
+    document.getElementById('itemPlace').value = it ? (it.where||[]).map(stripTags).filter(Boolean).join(' / ') : '';
+    document.getElementById('itemNotes').value = it ? stripTags(it.meta) : '';
+    document.getElementById('itemLink').value  = it ? (it.link||'') : '';
+    showItemPhoto();
+    document.getElementById('itemModal').hidden = false;
+    setTimeout(()=>document.getElementById('itemName').focus(), 60);
   }
-  async function saveNewItem(){
-    const cp = currentPerson(); if(!cp){ toast('請先新增一個人'); return; }
-    const name = (fld('name').value||'').trim(); if(!name){ fld('name').focus(); return; }
+  function closeItemModal(){ const m = document.getElementById('itemModal'); if(m) m.hidden = true; itemModalCtx = null; itemPhoto = ''; }
+  async function saveItemModal(){
+    if(!itemModalCtx) return;
+    const name = (document.getElementById('itemName').value||'').trim();
+    if(!name){ document.getElementById('itemName').focus(); return; }
+    const cp = currentPerson();
+    if(!itemModalCtx.id && !cp){ toast('請先新增一個人'); return; }
     if(!await ensurePass()) return;
-    const place = (fld('place').value||'').trim(), price = (fld('price').value||'').trim(), notes = (fld('notes').value||'').trim();
-    const position = cp.items.length ? Math.max(...cp.items.map(i=>i.position||0))+1 : 0;
-    const row = { person_id: cp.id, name: esc(name), price: price?esc(price):'', where_rows: place?[esc(place)]:[], meta: notes?esc(notes):'', image: addItemForm.dataset.image||'', link: addItemForm.dataset.link||'', bought:false, position };
-    const { data, error } = await sb.from('items').insert(row).select().single();
+    const price = (document.getElementById('itemPrice').value||'').trim();
+    const place = (document.getElementById('itemPlace').value||'').trim();
+    const notes = (document.getElementById('itemNotes').value||'').trim();
+    const link  = (document.getElementById('itemLink').value||'').trim();
+    const row = { name: esc(name), price: price?esc(price):'', where_rows: place?[esc(place)]:[], meta: notes?esc(notes):'', image: itemPhoto||'', link: link.replace(/"/g,'%22') };
+    let error;
+    if(itemModalCtx.id){ ({ error } = await sb.from('items').update(row).eq('id', itemModalCtx.id)); }
+    else { const position = cp.items.length ? Math.max(...cp.items.map(i=>i.position||0))+1 : 0; ({ error } = await sb.from('items').insert({ person_id: cp.id, ...row, bought:false, position })); }
     if(error) return handleWriteError(error);
-    cp.items.push(mapItem(data)); clearItemForm(); addItemForm.hidden = true; shopRender();
+    closeItemModal(); await reload();
   }
+  function compressImage(file, maxDim, cb){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else if(h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { cb(c.toDataURL('image/jpeg', 0.82)); } catch(e){ cb(null); }
+      };
+      img.onerror = () => cb(null);
+      img.src = reader.result;
+    };
+    reader.onerror = () => cb(null);
+    reader.readAsDataURL(file);
+  }
+  document.getElementById('addItemToggle').addEventListener('click', () => openItemModal(null));
+  document.getElementById('itemSave').addEventListener('click', saveItemModal);
+  document.getElementById('itemCancel').addEventListener('click', closeItemModal);
+  document.getElementById('itemModal').addEventListener('click', e => { if(e.target.id === 'itemModal') closeItemModal(); });
+  document.getElementById('itemPhotoPick').addEventListener('click', () => document.getElementById('itemPhotoInput').click());
+  document.getElementById('itemPhotoClear').addEventListener('click', () => { itemPhoto = ''; showItemPhoto(); });
+  document.getElementById('itemPhotoInput').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; if(!f) return;
+    toast('處理照片中…');
+    compressImage(f, 900, url => { if(!url){ toast('照片處理失敗'); return; } itemPhoto = url; showItemPhoto(); toast('照片已加入'); });
+    e.target.value = '';
+  });
 
   // jump from itinerary chip (matches item id or slug)
   function jumpToItem(ref){
