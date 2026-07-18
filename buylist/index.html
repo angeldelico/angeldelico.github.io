@@ -422,7 +422,7 @@
   //  writes are gated by the passcode via RLS, not by this key)
   // ==========================================================
   const SUPA_URL  = 'https://nllxqllzuxgkdpwzfvmx.supabase.co';
-  const SUPA_ANON = '__SUPABASE_ANON_KEY__';
+  const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sbHhxbGx6dXhna2Rwd3pmdm14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODQ1NjYsImV4cCI6MjA5OTk2MDU2Nn0.lg0zam8QFDBo0YUxN9-U_pmLn0OGI2VzDt7F34d3Ubg';
   const CONFIGURED = !!SUPA_ANON && !SUPA_ANON.startsWith('__');
 
   // ---------- default data (read-only preview + one-click import) ----------
@@ -558,6 +558,7 @@
   let PEOPLE = [], TRIP = [], activePerson = null;
   const editingDays = new Set();   // holds day ids in edit mode
   let READONLY = !CONFIGURED;
+  let dbError = null;
   let sb = null, _createClient = null;
   let editPass = (()=>{ try { return localStorage.getItem('ffx_pass') || null; } catch(e){ return null; } })();
 
@@ -609,17 +610,21 @@
   function debouncedReload(){ clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 400); }
   async function reload(){
     if(!READONLY){
-      try { await loadFromDB(); }
-      catch(e){ toast('讀取失敗：' + (e.message||e)); }
+      try { await loadFromDB(); dbError = null; }
+      catch(e){ dbError = e; toast('讀取失敗：' + (e.message||e)); }
     }
     renderAll();
   }
   function renderAll(){ shopRender(); render(); refreshImportBanner(); updateLockUI(); }
   function refreshImportBanner(){
-    const b = document.getElementById('importBanner');
-    if(b) b.hidden = READONLY || PEOPLE.length>0 || TRIP.length>0;
     const cb = document.getElementById('cfgBanner');
-    if(cb) cb.hidden = !READONLY;
+    if(cb){
+      if(READONLY){ cb.hidden = false; cb.textContent = '⚙️ 尚未接上資料庫，目前顯示預設資料（唯讀）。'; }
+      else if(dbError){ cb.hidden = false; cb.textContent = '⚠️ 無法讀取資料庫。請先在 Supabase SQL Editor 執行 buylist/supabase-schema.sql，再按右上角「↻ 同步」。'; }
+      else cb.hidden = true;
+    }
+    const b = document.getElementById('importBanner');
+    if(b) b.hidden = READONLY || !!dbError || PEOPLE.length>0 || TRIP.length>0;
   }
 
   // ---------- passcode / lock ----------
