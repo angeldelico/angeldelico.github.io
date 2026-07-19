@@ -335,11 +335,11 @@
   .card-del{
     position:absolute;top:10px;right:10px;z-index:3;
     width:32px;height:32px;border:none;border-radius:50%;cursor:pointer;
-    background:rgba(18,48,73,.85);color:#fff;font-size:16px;line-height:1;font-weight:700;
+    background:#C0281C;color:#fff;font-size:16px;line-height:1;font-weight:700;
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 8px rgba(0,0,0,.4);
   }
-  .card-del:active{transform:scale(.9);background:#C0281C}
+  .card-del:active{transform:scale(.9);background:#9E1F16}
   .thumb.empty{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#EAF6F7,#D6EEF0)}
   .thumb.empty::after{display:none}
   .thumb-emoji{font-size:44px}
@@ -500,10 +500,13 @@
 
 <p class="progress" id="progress">載入中…</p>
 
+<div class="add-item-wrap">
+  <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
+</div>
+
 <main id="shop-list"></main>
 
 <div class="add-item-wrap">
-  <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
   <button class="copy-list-btn" id="copyListBtn">📋 複製這份清單（貼給 Claude）</button>
 </div>
 
@@ -1094,9 +1097,11 @@
       PEOPLE.map(p => `<button class="person-chip${p.id===activePerson?' active':''}" data-person="${p.id}">${esc(p.name)}${PEOPLE.length>1?`<span class="pdel" data-delperson="${p.id}" title="刪除此人">✕</span>`:''}</button>`).join('')
       + `<button class="person-add" id="addPerson">＋ 新增人</button>`;
     const cp = currentPerson();
-    document.getElementById('shop-list').innerHTML = (cp && cp.items.length)
-      ? cp.items.map(itemCard).join('')
-      : `<p class="empty-shop">${cp?`「${esc(cp.name)}」的清單還是空的。<br>點下方「＋ 新增物品」加入第一項吧！`:'還沒有任何人的清單。'}</p>`;
+    // unbought first, bought sink to the bottom (stable within each group)
+    const ordered = cp ? [...cp.items].sort((a,b) => (a.bought?1:0) - (b.bought?1:0)) : [];
+    document.getElementById('shop-list').innerHTML = (cp && ordered.length)
+      ? ordered.map(itemCard).join('')
+      : `<p class="empty-shop">${cp?`「${esc(cp.name)}」的清單還是空的。<br>點上方「＋ 新增物品」加入第一項吧！`:'還沒有任何人的清單。'}</p>`;
     updateProgress();
     const t = document.getElementById('addItemToggle');
     if(t) t.textContent = cp ? ('＋ 新增物品到「' + cp.name + '」的清單') : '＋ 新增物品';
@@ -1121,9 +1126,7 @@
     const { error } = await sb.from('items').update({ bought: next }).eq('id', id);
     if(error) return handleWriteError(error);
     it.bought = next;
-    const card = document.getElementById('card-'+id);
-    if(card){ card.classList.toggle('done', next); const b = card.querySelector('.buy-btn'); if(b) b.textContent = next ? '已購入 🎉（點擊取消）' : '標記為已購 ✓'; }
-    updateProgress();
+    shopRender();   // re-render so the bought item sinks to the bottom
   }
   async function addPerson(){
     if(!await ensurePass()) return;
