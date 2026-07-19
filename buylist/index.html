@@ -469,6 +469,25 @@
   .ov-cur-toggle button.on{background:var(--deep);color:#fff}
   .ov-rate{font-size:13px;color:#5A7484;display:inline-flex;align-items:center;gap:6px}
   .ov-rate input{width:74px;border:1px solid rgba(18,48,73,.2);border-radius:8px;padding:6px 8px;font-size:14px;font-family:inherit;color:var(--ink)}
+  /* 景點詳細 */
+  .spot-detail{
+    flex:none;border:1px solid rgba(18,48,73,.18);background:#fff;color:var(--deep);
+    font-family:inherit;font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:3px;
+  }
+  .spot-detail:active{transform:scale(.95)}
+  .seg.editing .spot-detail{display:none}
+  .detail-sub{font-size:13px;color:#5A7484;margin-bottom:10px}
+  .detail-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+  .detail-list li{display:flex;align-items:flex-start;gap:8px;background:#fff;border:1px solid rgba(18,48,73,.12);border-radius:10px;padding:9px 11px;font-size:14px;line-height:1.5}
+  .detail-list li span{flex:1}
+  .detail-list li::before{content:"•";color:var(--gold);font-weight:700;flex:none}
+  .detail-list li.detail-empty{color:#8AA0AC;justify-content:center;border-style:dashed}
+  .detail-list li.detail-empty::before{content:""}
+  .detail-del{flex:none;border:none;background:#FBE4E2;color:#C0281C;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:12px}
+  .detail-add-row{display:flex;gap:8px}
+  .detail-add-row input{flex:1;min-width:0;border:1px solid rgba(18,48,73,.2);border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;color:var(--ink)}
+  #detailAdd{flex:none;border:none;background:var(--orange);color:#fff;font-family:inherit;font-weight:700;border-radius:999px;padding:0 16px;cursor:pointer;font-size:14px}
 </style>
 </head>
 <body>
@@ -576,6 +595,19 @@
     </div>
     <div id="ovBody"></div>
     <div class="modal-actions"><button type="button" id="ovClose">關閉</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailModal" hidden>
+  <div class="modal">
+    <h3>📝 景點詳細</h3>
+    <div class="detail-sub" id="detailSpotName"></div>
+    <ul class="detail-list" id="detailList"></ul>
+    <div class="detail-add-row">
+      <input type="text" id="detailInput" placeholder="新增小店／餐廳／備註…">
+      <button type="button" id="detailAdd">＋ 加入</button>
+    </div>
+    <div class="modal-actions"><button type="button" id="detailClose">關閉</button></div>
   </div>
 </div>
 
@@ -797,7 +829,7 @@
   // ---------- row <-> model mapping ----------
   function mapItem(r){ return { id:r.id, person_id:r.person_id, slug:r.slug||'', name:r.name||'', price:r.price||'', twd:r.twd||'', priceNote:r.price_note||'', meta:r.meta||'', where:Array.isArray(r.where_rows)?r.where_rows:[], warn:r.warn||'', image:r.image||'', link:r.link||'', badge:(r.badge_text?{cls:r.badge_cls||'general',text:r.badge_text}:null), bought:!!r.bought, position:r.position||0 }; }
   function mapDay(r){ return { id:r.id, date:r.date_label||'', place:r.place||'', src:r.src||'', hotel:r.hotel||'', hotelq:r.hotelq||'', buyStrip:r.buystrip||null, position:r.position||0 }; }
-  function mapSpot(r){ return { id:r.id, day_id:r.day_id, name:r.name||'', q:r.q||'', wiki:r.wiki||'', emoji:r.emoji||'📍', sub:r.sub||'', tag:r.tag||'', skip:!!r.skip, position:r.position||0 }; }
+  function mapSpot(r){ return { id:r.id, day_id:r.day_id, name:r.name||'', q:r.q||'', wiki:r.wiki||'', emoji:r.emoji||'📍', sub:r.sub||'', tag:r.tag||'', skip:!!r.skip, details:Array.isArray(r.details)?r.details:[], position:r.position||0 }; }
   function mapExpense(r){ return { id:r.id, kind:r.kind||'expense', description:r.description||'', amount:Number(r.amount)||0, currency:r.currency||'JPY', payer_id:r.payer_id||null, participants:Array.isArray(r.participants)?r.participants:[], position:r.position||0 }; }
 
   function seedModels(){
@@ -903,6 +935,7 @@
           <a class="sthumb" href="${maps(sp.q)}"${wiki} target="_blank" rel="noopener"><span class="ph">${sp.emoji||'📍'}</span></a>
           <a class="name" href="${maps(sp.q)}" target="_blank" rel="noopener">${esc(sp.name)}${sub}</a>
           ${sp.tag||''}
+          <button class="spot-detail" data-detail="${sp.id}" title="詳細（小店/餐廳/備註）">📝${(sp.details&&sp.details.length)?(' '+sp.details.length):''}</button>
           <span class="ctrls"><button class="ctrl edit" title="編輯">✎</button><button class="ctrl del" title="刪除">✕</button></span>
         </div>`;
       }).join('');
@@ -956,6 +989,8 @@
   tripEl.addEventListener('click', e => {
     const chip = e.target.closest('.buy-chip');
     if(chip){ jumpToItem(chip.dataset.item); return; }
+    const det = e.target.closest('[data-detail]');
+    if(det){ openDetailModal(det.dataset.detail); return; }
     const eb = e.target.closest('[data-editday]');
     if(eb){ const id = eb.dataset.editday; if(editingDays.has(id)) editingDays.delete(id); else editingDays.add(id); render(); return; }
     const editBtn = e.target.closest('.ctrl.edit');
@@ -982,6 +1017,48 @@
     for(const d of TRIP){ const s = d.spots.find(x=>x.id===spotId); if(s){ Object.assign(s, patch); break; } }
     render(); return true;
   }
+
+  // ---------- spot detail modal (小店 / 餐廳 / 備註 as a bullet list) ----------
+  let detailSpotId = null;
+  function findSpot(id){ for(const d of TRIP){ const s = d.spots.find(x=>x.id===id); if(s) return s; } return null; }
+  function renderDetailList(spot){
+    const ul = document.getElementById('detailList');
+    const items = spot.details || [];
+    ul.innerHTML = items.length
+      ? items.map((t,i) => `<li><span>${esc(t)}</span><button class="detail-del" data-di="${i}" title="刪除">✕</button></li>`).join('')
+      : '<li class="detail-empty">還沒有細節。加入附近的小店、餐廳或備註吧！</li>';
+  }
+  function openDetailModal(spotId){
+    const spot = findSpot(spotId); if(!spot) return;
+    detailSpotId = spotId;
+    document.getElementById('detailSpotName').textContent = stripTags(spot.name);
+    renderDetailList(spot);
+    document.getElementById('detailInput').value = '';
+    document.getElementById('detailModal').hidden = false;
+  }
+  function closeDetailModal(){ document.getElementById('detailModal').hidden = true; detailSpotId = null; }
+  async function addDetail(){
+    const spot = findSpot(detailSpotId); if(!spot) return;
+    const inp = document.getElementById('detailInput'); const v = (inp.value||'').trim(); if(!v) return;
+    if(!await ensurePass()) return;
+    const next = [...(spot.details||[]), v];
+    const { error } = await sb.from('trip_spots').update({ details: next }).eq('id', spot.id);
+    if(error) return handleWriteError(error);
+    spot.details = next; inp.value = ''; renderDetailList(spot); render();
+  }
+  async function deleteDetail(i){
+    const spot = findSpot(detailSpotId); if(!spot) return;
+    if(!await ensurePass()) return;
+    const next = (spot.details||[]).filter((_,idx) => idx !== i);
+    const { error } = await sb.from('trip_spots').update({ details: next }).eq('id', spot.id);
+    if(error) return handleWriteError(error);
+    spot.details = next; renderDetailList(spot); render();
+  }
+  document.getElementById('detailAdd').addEventListener('click', addDetail);
+  document.getElementById('detailInput').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addDetail(); } });
+  document.getElementById('detailClose').addEventListener('click', closeDetailModal);
+  document.getElementById('detailModal').addEventListener('click', e => { if(e.target.id === 'detailModal') closeDetailModal(); });
+  document.getElementById('detailList').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if(b) deleteDetail(+b.dataset.di); });
   async function deleteSpot(dayId, spotId){
     const day = TRIP.find(d=>d.id===dayId); if(!day) return;
     const idx = day.spots.findIndex(s=>s.id===spotId); if(idx<0) return;
