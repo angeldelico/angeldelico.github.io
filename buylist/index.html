@@ -420,6 +420,36 @@
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);
   }
   .card-edit:active{transform:scale(.9)}
+  /* ===== 旅費 expenses ===== */
+  .exp-toolbar{max-width:560px;margin:16px auto 0;padding:0 16px}
+  .exp-section{max-width:560px;margin:14px auto 0;padding:0 16px}
+  .exp-card{background:var(--foam);color:var(--ink);border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(4,14,24,.35);margin-bottom:12px}
+  .exp-card h4{font-family:'Shippori Mincho',serif;font-size:15px;margin-bottom:8px}
+  .bal-row,.settle-row{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:14px;border-bottom:1px solid rgba(28,52,70,.08)}
+  .bal-row:last-child,.settle-row:last-child{border-bottom:none}
+  .bal-row span:first-child{flex:1}
+  .bal-pos{color:#1e8e4e;font-weight:700}
+  .bal-neg{color:#C0281C;font-weight:700}
+  .bal-zero{color:#8AA0AC}
+  .settle-row .amt{margin-left:auto;font-weight:700;color:var(--deep)}
+  .settle-pay{border:none;background:var(--deep);color:#fff;font-family:inherit;font-weight:700;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;flex:none}
+  .exp-item{display:flex;align-items:center;gap:10px;background:var(--foam);color:var(--ink);border-radius:12px;padding:11px 14px;box-shadow:0 6px 20px rgba(4,14,24,.28);margin-bottom:10px}
+  .exp-item .ei-main{flex:1;min-width:0}
+  .exp-item .ei-desc{font-weight:700;font-size:14.5px}
+  .exp-item .ei-sub{font-size:12px;color:#5A7484;margin-top:2px}
+  .exp-item .ei-amt{font-weight:700;color:var(--deep);white-space:nowrap}
+  .exp-item .ei-btns{display:flex;gap:4px;flex:none}
+  .ei-btn{width:28px;height:28px;border:none;border-radius:7px;cursor:pointer;font-size:13px;background:#EAF0F2;color:var(--deep);display:flex;align-items:center;justify-content:center}
+  .ei-btn.del{background:#FBE4E2;color:#C0281C}
+  .exp-empty{max-width:560px;margin:0 auto;padding:36px 24px;text-align:center;color:var(--aqua-soft);font-size:15px;line-height:1.7}
+  .exp-amount-row{display:flex;gap:8px}
+  .exp-amount-row select{flex:none;width:auto}
+  .exp-amount-row input{flex:1;min-width:0}
+  .modal select{width:100%;border:1px solid rgba(18,48,73,.2);border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff}
+  .exp-participants{display:flex;flex-wrap:wrap;gap:8px}
+  .exp-part{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(18,48,73,.18);border-radius:999px;padding:7px 12px;font-size:13.5px;cursor:pointer;user-select:none}
+  .exp-part input{width:16px;height:16px}
+  .exp-part.on{border-color:var(--deep);background:#E3F0F2}
 </style>
 </head>
 <body>
@@ -435,6 +465,7 @@
 <div class="tabs">
   <button class="tab active" data-panel="shop">🛒 購物清單</button>
   <button class="tab" data-panel="trip">🗺️ 行程</button>
+  <button class="tab" data-panel="expense">💰 旅費</button>
 </div>
 
 <div class="sync-bar">
@@ -473,6 +504,42 @@
 <div class="trip" id="trip"></div>
 <p class="trip-note">🗓️ 逐日行程（Day 1–10），含餐廳與景點。🛒 神戶(Day2)、京都(Day8) 有「沿途先買」標籤，大阪(Day10) 是採買主場——點標籤跳到購物清單。📍 點名稱／縮圖開 Google Maps。✏️ 每天標題列的「編輯」鈕可進入該天編輯：拖曳 ⠿ 排序、✎ 開啟表單改名稱／圖示、✕ 刪除、底部「＋ 新增地點」開表單。表單可貼連結自動帶入名稱、選 emoji 圖示。編輯需先用右上角 🔒 解鎖，所有變更即時存到資料庫、跨裝置同步。</p>
 </section>
+
+<section class="panel" id="panel-expense">
+  <div class="exp-toolbar">
+    <button id="addExpenseBtn" class="add-item-toggle">＋ 新增旅費</button>
+  </div>
+  <div id="exp-summary"></div>
+  <div id="exp-list"></div>
+  <p class="trip-note">💰 記錄誰付了錢、如何分攤，下面會自動算出每個人的結餘與「誰欠誰」的<b>最少次數還款建議</b>。點還款建議的「記錄還款」可直接記一筆。不同幣別（¥／NT$）各自結算。編輯需先用右上角 🔒 解鎖，所有變更即時存到資料庫、跨裝置同步。</p>
+</section>
+
+<div class="modal-overlay" id="expModal" hidden>
+  <div class="modal">
+    <h3 id="expModalTitle">新增旅費</h3>
+    <label id="expDescLabel">項目（例：晚餐、計程車、飯店）</label>
+    <input type="text" id="expDesc" placeholder="晚餐">
+    <label>金額</label>
+    <div class="exp-amount-row">
+      <select id="expCurrency"><option value="JPY">¥ 日圓</option><option value="TWD">NT$ 台幣</option></select>
+      <input type="number" id="expAmount" inputmode="decimal" placeholder="0">
+    </div>
+    <label id="expPayerLabel">誰付的</label>
+    <select id="expPayer"></select>
+    <div id="expPartWrap">
+      <label>誰要分攤（平均分）</label>
+      <div class="exp-participants" id="expParticipants"></div>
+    </div>
+    <div id="expPayeeWrap" hidden>
+      <label>還給誰</label>
+      <select id="expPayee"></select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="expSave">加入</button>
+      <button type="button" id="expCancel">取消</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="spotModal" hidden>
   <div class="modal">
@@ -669,7 +736,7 @@
   function toast(msg){ const t = document.getElementById('toast'); if(!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2800); }
 
   // ---------- state ----------
-  let PEOPLE = [], TRIP = [], activePerson = null;
+  let PEOPLE = [], TRIP = [], EXPENSES = [], activePerson = null;
   const editingDays = new Set();   // holds day ids in edit mode
   let READONLY = !CONFIGURED;
   let dbError = null;
@@ -693,6 +760,7 @@
   function mapItem(r){ return { id:r.id, person_id:r.person_id, slug:r.slug||'', name:r.name||'', price:r.price||'', twd:r.twd||'', priceNote:r.price_note||'', meta:r.meta||'', where:Array.isArray(r.where_rows)?r.where_rows:[], warn:r.warn||'', image:r.image||'', link:r.link||'', badge:(r.badge_text?{cls:r.badge_cls||'general',text:r.badge_text}:null), bought:!!r.bought, position:r.position||0 }; }
   function mapDay(r){ return { id:r.id, date:r.date_label||'', place:r.place||'', src:r.src||'', hotel:r.hotel||'', hotelq:r.hotelq||'', buyStrip:r.buystrip||null, position:r.position||0 }; }
   function mapSpot(r){ return { id:r.id, day_id:r.day_id, name:r.name||'', q:r.q||'', wiki:r.wiki||'', emoji:r.emoji||'📍', sub:r.sub||'', tag:r.tag||'', skip:!!r.skip, position:r.position||0 }; }
+  function mapExpense(r){ return { id:r.id, kind:r.kind||'expense', description:r.description||'', amount:Number(r.amount)||0, currency:r.currency||'JPY', payer_id:r.payer_id||null, participants:Array.isArray(r.participants)?r.participants:[], position:r.position||0 }; }
 
   function seedModels(){
     const people = DEFAULT_PEOPLE.map((p,pi)=>({ id:'seedp'+pi, name:p.name, position:pi,
@@ -717,8 +785,13 @@
     const spots = (sR.data||[]).map(mapSpot);
     TRIP = (dR.data||[]).map(d => { const m = mapDay(d); m.spots = spots.filter(s=>s.day_id===d.id); return m; });
     if(!activePerson || !PEOPLE.some(p=>p.id===activePerson)) activePerson = PEOPLE[0] ? PEOPLE[0].id : null;
+    // expenses table is optional — load tolerantly so the app still works if the schema isn't applied yet
+    try {
+      const eR = await sb.from('expenses').select('*').order('created_at');
+      EXPENSES = (eR && !eR.error && Array.isArray(eR.data)) ? eR.data.map(mapExpense) : [];
+    } catch(_){ EXPENSES = []; }
   }
-  function loadSeed(){ const m = seedModels(); PEOPLE = m.people; TRIP = m.trip; activePerson = PEOPLE[0] ? PEOPLE[0].id : null; }
+  function loadSeed(){ const m = seedModels(); PEOPLE = m.people; TRIP = m.trip; EXPENSES = []; activePerson = PEOPLE[0] ? PEOPLE[0].id : null; }
 
   let reloadTimer = null;
   function debouncedReload(){ clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 400); }
@@ -729,7 +802,7 @@
     }
     renderAll();
   }
-  function renderAll(){ shopRender(); render(); refreshImportBanner(); updateLockUI(); }
+  function renderAll(){ shopRender(); render(); expenseRender(); refreshImportBanner(); updateLockUI(); }
   function refreshImportBanner(){
     const cb = document.getElementById('cfgBanner');
     if(cb){
@@ -1275,6 +1348,178 @@
   document.getElementById('emojiGrid').addEventListener('click', e => { const b = e.target.closest('[data-emoji]'); if(b) selectEmoji(b.dataset.emoji); });
   document.getElementById('spotEmoji').addEventListener('input', e => { const v = e.target.value.trim(); if(v){ spotEmoji = v; document.querySelectorAll('#emojiGrid button').forEach(b=>b.classList.remove('sel')); } });
   buildEmojiGrid();
+
+  // ==========================================================
+  //  旅費 EXPENSES — who owes whom + settle-up
+  // ==========================================================
+  const CUR_SYM = { JPY:'¥', TWD:'NT$' };
+  const CUR_NAME = { JPY:'日圓', TWD:'台幣' };
+  const CUR_ORDER = ['JPY','TWD'];
+  function personName(id){ const p = PEOPLE.find(x=>x.id===id); return p ? p.name : '（已刪除）'; }
+  function fmtAmt(cur, n){ return (CUR_SYM[cur]||'') + Math.round(n).toLocaleString('en-US'); }
+  function balancesFor(cur){
+    const bal = {}; PEOPLE.forEach(p => bal[p.id] = 0);
+    EXPENSES.filter(e => e.currency === cur).forEach(e => {
+      const parts = (e.participants||[]).filter(id => bal[id] !== undefined);
+      if(e.payer_id != null && bal[e.payer_id] !== undefined) bal[e.payer_id] += e.amount;
+      if(parts.length){ const sh = e.amount / parts.length; parts.forEach(id => bal[id] -= sh); }
+    });
+    return bal;
+  }
+  function settleTx(bal){
+    const cred = [], deb = [];
+    Object.keys(bal).forEach(id => { const v = Math.round(bal[id]); if(v>0) cred.push({id,v}); else if(v<0) deb.push({id,v:-v}); });
+    cred.sort((a,b)=>b.v-a.v); deb.sort((a,b)=>b.v-a.v);
+    const tx = []; let i=0, j=0;
+    while(i<deb.length && j<cred.length){
+      const pay = Math.min(deb[i].v, cred[j].v);
+      if(pay>0) tx.push({ from:deb[i].id, to:cred[j].id, amount:pay });
+      deb[i].v -= pay; cred[j].v -= pay;
+      if(deb[i].v===0) i++; if(cred[j].v===0) j++;
+    }
+    return tx;
+  }
+  function expItemRow(e){
+    const amt = fmtAmt(e.currency, e.amount);
+    if(e.kind === 'payment'){
+      const to = (e.participants||[])[0] || null;
+      return `<div class="exp-item">
+        <div class="ei-main"><div class="ei-desc">💸 ${esc(personName(e.payer_id))} 還 ${esc(personName(to))}</div>
+        <div class="ei-sub">還款${e.description?('・'+esc(e.description)):''}</div></div>
+        <div class="ei-amt">${amt}</div>
+        <div class="ei-btns"><button class="ei-btn" data-expedit="${e.id}" title="編輯">✎</button><button class="ei-btn del" data-expdel="${e.id}" title="刪除">✕</button></div>
+      </div>`;
+    }
+    const parts = (e.participants||[]).map(personName).join('、');
+    return `<div class="exp-item">
+      <div class="ei-main"><div class="ei-desc">${esc(e.description||'（無標題）')}</div>
+      <div class="ei-sub">${esc(personName(e.payer_id))} 付・分攤：${esc(parts||'—')}</div></div>
+      <div class="ei-amt">${amt}</div>
+      <div class="ei-btns"><button class="ei-btn" data-expedit="${e.id}" title="編輯">✎</button><button class="ei-btn del" data-expdel="${e.id}" title="刪除">✕</button></div>
+    </div>`;
+  }
+  function expenseRender(){
+    const summary = document.getElementById('exp-summary'), listEl = document.getElementById('exp-list');
+    if(!summary || !listEl) return;
+    if(!EXPENSES.length){
+      summary.innerHTML = '';
+      listEl.innerHTML = '<p class="exp-empty">還沒有任何旅費紀錄。<br>點上面「＋ 新增旅費」開始記帳吧！</p>';
+      return;
+    }
+    const curs = CUR_ORDER.filter(c => EXPENSES.some(e => e.currency === c));
+    summary.innerHTML = curs.map(cur => {
+      const bal = balancesFor(cur);
+      const balRows = PEOPLE.map(p => {
+        const v = Math.round(bal[p.id]||0);
+        const cls = v>0 ? 'bal-pos' : (v<0 ? 'bal-neg' : 'bal-zero');
+        const txt = v>0 ? ('別人欠他 '+fmtAmt(cur,v)) : (v<0 ? ('他要付 '+fmtAmt(cur,-v)) : '結清');
+        return `<div class="bal-row"><span>${esc(p.name)}</span><span class="${cls}">${txt}</span></div>`;
+      }).join('');
+      const tx = settleTx(bal);
+      const settleRows = tx.length ? tx.map(t => `<div class="settle-row">
+          <span>${esc(personName(t.from))} → ${esc(personName(t.to))}</span>
+          <span class="amt">${fmtAmt(cur, t.amount)}</span>
+          <button class="settle-pay" data-pfrom="${t.from}" data-pto="${t.to}" data-pcur="${cur}" data-pamt="${t.amount}">記錄還款</button>
+        </div>`).join('') : '<div class="bal-zero" style="padding:6px 0">已全部結清 🎉</div>';
+      return `<div class="exp-section">
+        <div class="exp-card"><h4>${CUR_SYM[cur]} ${CUR_NAME[cur]} — 結餘</h4>${balRows}</div>
+        <div class="exp-card"><h4>💸 還款建議（最少次數）</h4>${settleRows}</div>
+      </div>`;
+    }).join('');
+    listEl.innerHTML = '<div class="exp-section"><h4 style="max-width:560px;margin:2px auto 8px;color:var(--aqua-soft);font-family:\'Shippori Mincho\',serif;font-size:15px">📒 所有紀錄</h4>'
+      + [...EXPENSES].reverse().map(expItemRow).join('') + '</div>';
+  }
+
+  // expense modal
+  let expModalCtx = null;
+  function fillPeopleSelect(sel, selectedId){ sel.innerHTML = PEOPLE.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join(''); if(selectedId) sel.value = selectedId; }
+  function fillParticipants(selectedIds){
+    const set = new Set(selectedIds);
+    document.getElementById('expParticipants').innerHTML = PEOPLE.map(p =>
+      `<label class="exp-part${set.has(p.id)?' on':''}"><input type="checkbox" value="${p.id}"${set.has(p.id)?' checked':''}>${esc(p.name)}</label>`).join('');
+  }
+  function openExpenseModal(id){
+    if(!PEOPLE.length){ toast('請先到購物清單新增至少一個人'); return; }
+    const e = id ? EXPENSES.find(x=>x.id===id) : null;
+    expModalCtx = { id: id||null, kind: e ? e.kind : 'expense' };
+    const isPay = expModalCtx.kind === 'payment';
+    document.getElementById('expModalTitle').textContent = e ? (isPay?'編輯還款':'編輯旅費') : '新增旅費';
+    document.getElementById('expSave').textContent = e ? '儲存' : '加入';
+    document.getElementById('expDescLabel').textContent = isPay ? '備註（可選）' : '項目（例：晚餐、計程車、飯店）';
+    document.getElementById('expDesc').value = e ? (e.description||'') : '';
+    document.getElementById('expCurrency').value = e ? e.currency : 'JPY';
+    document.getElementById('expAmount').value = e ? e.amount : '';
+    document.getElementById('expPayerLabel').textContent = isPay ? '還款人' : '誰付的';
+    fillPeopleSelect(document.getElementById('expPayer'), e ? e.payer_id : (activePerson || PEOPLE[0].id));
+    document.getElementById('expPartWrap').hidden = isPay;
+    document.getElementById('expPayeeWrap').hidden = !isPay;
+    if(isPay) fillPeopleSelect(document.getElementById('expPayee'), e ? (e.participants||[])[0] : PEOPLE[0].id);
+    else fillParticipants(e ? e.participants : PEOPLE.map(p=>p.id));
+    document.getElementById('expModal').hidden = false;
+  }
+  function openPaymentModal(from, to, cur, amt){
+    if(!PEOPLE.length) return;
+    expModalCtx = { id:null, kind:'payment' };
+    document.getElementById('expModalTitle').textContent = '記錄還款';
+    document.getElementById('expSave').textContent = '記錄';
+    document.getElementById('expDescLabel').textContent = '備註（可選）';
+    document.getElementById('expDesc').value = '';
+    document.getElementById('expCurrency').value = cur || 'JPY';
+    document.getElementById('expAmount').value = amt || '';
+    document.getElementById('expPayerLabel').textContent = '還款人';
+    fillPeopleSelect(document.getElementById('expPayer'), from);
+    document.getElementById('expPartWrap').hidden = true;
+    document.getElementById('expPayeeWrap').hidden = false;
+    fillPeopleSelect(document.getElementById('expPayee'), to);
+    document.getElementById('expModal').hidden = false;
+  }
+  function closeExpenseModal(){ document.getElementById('expModal').hidden = true; expModalCtx = null; }
+  async function saveExpenseModal(){
+    if(!expModalCtx) return;
+    const amount = parseFloat(document.getElementById('expAmount').value);
+    if(!(amount > 0)){ document.getElementById('expAmount').focus(); toast('請輸入金額'); return; }
+    const payer_id = document.getElementById('expPayer').value;
+    let participants;
+    if(expModalCtx.kind === 'payment'){
+      const to = document.getElementById('expPayee').value;
+      if(to === payer_id){ toast('還款人和收款人不能相同'); return; }
+      participants = [to];
+    } else {
+      participants = [...document.querySelectorAll('#expParticipants input:checked')].map(c=>c.value);
+      if(!participants.length){ toast('請至少選一個分攤的人'); return; }
+    }
+    if(!await ensurePass()) return;
+    const row = { kind: expModalCtx.kind, description: esc((document.getElementById('expDesc').value||'').trim()), amount, currency: document.getElementById('expCurrency').value, payer_id, participants };
+    let error;
+    if(expModalCtx.id){ ({ error } = await sb.from('expenses').update(row).eq('id', expModalCtx.id)); }
+    else { ({ error } = await sb.from('expenses').insert({ ...row, position: EXPENSES.length })); }
+    if(error) return handleWriteError(error);
+    closeExpenseModal(); await reload();
+  }
+  function deleteExpenseClick(id){
+    const e = EXPENSES.find(x=>x.id===id); if(!e) return;
+    const label = e.kind==='payment' ? (personName(e.payer_id)+' 還 '+personName((e.participants||[])[0])) : (e.description||'這筆旅費');
+    if(!window.confirm('刪除「' + stripTags(label) + '」？')) return;
+    deleteExpenseConfirmed(id);
+  }
+  async function deleteExpenseConfirmed(id){
+    if(!await ensurePass()) return;
+    const { error } = await sb.from('expenses').delete().eq('id', id);
+    if(error) return handleWriteError(error);
+    EXPENSES = EXPENSES.filter(x=>x.id!==id); expenseRender();
+  }
+
+  const expPanel = document.getElementById('panel-expense');
+  expPanel.addEventListener('click', e => {
+    if(e.target.closest('#addExpenseBtn')){ openExpenseModal(null); return; }
+    const pay = e.target.closest('[data-pfrom]'); if(pay){ openPaymentModal(pay.dataset.pfrom, pay.dataset.pto, pay.dataset.pcur, pay.dataset.pamt); return; }
+    const ed = e.target.closest('[data-expedit]'); if(ed){ openExpenseModal(ed.dataset.expedit); return; }
+    const de = e.target.closest('[data-expdel]'); if(de){ deleteExpenseClick(de.dataset.expdel); return; }
+  });
+  document.getElementById('expParticipants').addEventListener('change', e => { const l = e.target.closest('.exp-part'); if(l) l.classList.toggle('on', e.target.checked); });
+  document.getElementById('expSave').addEventListener('click', saveExpenseModal);
+  document.getElementById('expCancel').addEventListener('click', closeExpenseModal);
+  document.getElementById('expModal').addEventListener('click', e => { if(e.target.id === 'expModal') closeExpenseModal(); });
 
   // ---------- top controls ----------
   document.getElementById('refreshBtn').addEventListener('click', () => { toast('同步中…'); reload(); });
