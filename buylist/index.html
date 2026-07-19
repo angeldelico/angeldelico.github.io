@@ -459,6 +459,12 @@
   .ov-table th{color:#5A7484;font-weight:700;font-size:12px}
   .ov-table td.num,.ov-table th.num{text-align:right;white-space:nowrap}
   .ov-settle-title{margin-top:12px;margin-bottom:2px;font-weight:700;font-size:13px;color:var(--deep)}
+  .ov-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+  .ov-cur-toggle{display:inline-flex;border:1px solid rgba(18,48,73,.2);border-radius:10px;overflow:hidden}
+  .ov-cur-toggle button{border:none;background:#fff;color:var(--deep);font-family:inherit;font-weight:700;font-size:13px;padding:8px 14px;cursor:pointer}
+  .ov-cur-toggle button.on{background:var(--deep);color:#fff}
+  .ov-rate{font-size:13px;color:#5A7484;display:inline-flex;align-items:center;gap:6px}
+  .ov-rate input{width:74px;border:1px solid rgba(18,48,73,.2);border-radius:8px;padding:6px 8px;font-size:14px;font-family:inherit;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -554,6 +560,13 @@
 <div class="modal-overlay" id="summaryModal" hidden>
   <div class="modal">
     <h3>📊 總清算</h3>
+    <div class="ov-controls">
+      <div class="ov-cur-toggle" id="ovCurToggle">
+        <button type="button" data-ovcur="JPY">¥ 日圓</button>
+        <button type="button" data-ovcur="TWD">NT$ 台幣</button>
+      </div>
+      <label class="ov-rate">匯率 1 NT$ = <input id="ovRate" type="number" step="0.01" inputmode="decimal"> ¥</label>
+    </div>
     <div id="ovBody"></div>
     <div class="modal-actions"><button type="button" id="ovClose">關閉</button></div>
   </div>
@@ -1527,41 +1540,61 @@
     EXPENSES = EXPENSES.filter(x=>x.id!==id); expenseRender();
   }
 
-  // 總清算 overview
+  // 總清算 overview — all currencies combined into one chosen currency (editable rate)
+  let ovCur = (()=>{ try { return localStorage.getItem('ffx_ovcur') || 'JPY'; } catch(e){ return 'JPY'; } })();
+  let ovRate = (()=>{ try { const v = parseFloat(localStorage.getItem('ffx_rate')); return v>0 ? v : 4.7; } catch(e){ return 4.7; } })(); // 1 NT$ = ovRate ¥
+  function convAmt(amount, from, to, rate){
+    if(from === to) return amount;
+    if(from === 'TWD' && to === 'JPY') return amount * rate;
+    if(from === 'JPY' && to === 'TWD') return amount / rate;
+    return amount;
+  }
   function overviewHtml(){
     if(!EXPENSES.length) return '<p class="exp-empty">還沒有任何旅費紀錄。</p>';
-    const curs = CUR_ORDER.filter(c => EXPENSES.some(e => e.currency === c));
-    return curs.map(cur => {
-      const exp = EXPENSES.filter(e => e.currency === cur && e.kind === 'expense');
-      const total = exp.reduce((s,e) => s + e.amount, 0);
-      const paid = {}, share = {};
-      PEOPLE.forEach(p => { paid[p.id] = 0; share[p.id] = 0; });
-      exp.forEach(e => {
-        if(e.payer_id != null && paid[e.payer_id] !== undefined) paid[e.payer_id] += e.amount;
-        const parts = (e.participants||[]).filter(id => share[id] !== undefined);
-        if(parts.length){ const sh = e.amount/parts.length; parts.forEach(id => share[id] += sh); }
-      });
-      const bal = balancesFor(cur);
-      const rows = PEOPLE.filter(p => Math.round(paid[p.id]) || Math.round(share[p.id]) || Math.round(bal[p.id]||0)).map(p => {
-        const net = Math.round(bal[p.id]||0);
-        const netCls = net>0 ? 'bal-pos' : (net<0 ? 'bal-neg' : 'bal-zero');
-        const netTxt = net>0 ? ('+'+fmtAmt(cur,net)) : (net<0 ? ('−'+fmtAmt(cur,-net)) : '0');
-        return `<tr><td>${esc(p.name)}</td><td class="num">${fmtAmt(cur,paid[p.id])}</td><td class="num">${fmtAmt(cur,share[p.id])}</td><td class="num ${netCls}">${netTxt}</td></tr>`;
-      }).join('');
-      const tx = settleTx(bal);
-      const settle = tx.length ? tx.map(t => `<div class="settle-row"><span>${esc(personName(t.from))} → ${esc(personName(t.to))}</span><span class="amt">${fmtAmt(cur,t.amount)}</span></div>`).join('') : '<div class="bal-zero" style="padding:6px 0">已全部結清 🎉</div>';
-      return `<div class="ov-cur">
-        <h4>${CUR_SYM[cur]} ${CUR_NAME[cur]}</h4>
-        <div class="ov-total">總花費 <b>${fmtAmt(cur,total)}</b>（${exp.length} 筆消費）</div>
-        <table class="ov-table"><thead><tr><th>成員</th><th class="num">共付</th><th class="num">分攤</th><th class="num">淨額</th></tr></thead><tbody>${rows}</tbody></table>
-        <div class="ov-settle-title">💸 還款清算（誰付誰）</div>${settle}
-      </div>`;
+    const cur = ovCur, rate = ovRate>0 ? ovRate : 4.7;
+    const paid = {}, share = {}, bal = {};
+    PEOPLE.forEach(p => { paid[p.id]=0; share[p.id]=0; bal[p.id]=0; });
+    let total = 0, nExp = 0;
+    EXPENSES.forEach(e => {
+      const amt = convAmt(e.amount, e.currency, cur, rate);
+      if(e.kind === 'expense'){ total += amt; nExp++; }
+      if(e.payer_id != null && bal[e.payer_id] !== undefined){ bal[e.payer_id] += amt; if(e.kind==='expense') paid[e.payer_id] += amt; }
+      const parts = (e.participants||[]).filter(id => bal[id] !== undefined);
+      if(parts.length){ const sh = amt/parts.length; parts.forEach(id => { bal[id] -= sh; if(e.kind==='expense') share[id] += sh; }); }
+    });
+    const rows = PEOPLE.filter(p => Math.round(paid[p.id]) || Math.round(share[p.id]) || Math.round(bal[p.id]||0)).map(p => {
+      const net = Math.round(bal[p.id]||0);
+      const netCls = net>0 ? 'bal-pos' : (net<0 ? 'bal-neg' : 'bal-zero');
+      const netTxt = net>0 ? ('+'+fmtAmt(cur,net)) : (net<0 ? ('−'+fmtAmt(cur,-net)) : '0');
+      return `<tr><td>${esc(p.name)}</td><td class="num">${fmtAmt(cur,paid[p.id])}</td><td class="num">${fmtAmt(cur,share[p.id])}</td><td class="num ${netCls}">${netTxt}</td></tr>`;
     }).join('');
+    const tx = settleTx(bal);
+    const settle = tx.length ? tx.map(t => `<div class="settle-row"><span>${esc(personName(t.from))} → ${esc(personName(t.to))}</span><span class="amt">${fmtAmt(cur,t.amount)}</span></div>`).join('') : '<div class="bal-zero" style="padding:6px 0">已全部結清 🎉</div>';
+    const mixed = EXPENSES.some(e => e.currency !== cur);
+    return `<div class="ov-cur">
+      <div class="ov-total">全部總花費 <b>${fmtAmt(cur,total)}</b>（${nExp} 筆消費）${mixed ? `<br><span style="font-size:11px">＊已用 1 NT$ = ${rate} ¥ 換算成單一幣別（估算）</span>` : ''}</div>
+      <table class="ov-table"><thead><tr><th>成員</th><th class="num">共付</th><th class="num">分攤</th><th class="num">淨額</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="ov-settle-title">💸 還款清算（誰付誰）</div>${settle}
+    </div>`;
   }
-  function openOverview(){ document.getElementById('ovBody').innerHTML = overviewHtml(); document.getElementById('summaryModal').hidden = false; }
+  function syncOvControls(){
+    document.querySelectorAll('#ovCurToggle button').forEach(b => b.classList.toggle('on', b.dataset.ovcur === ovCur));
+    const r = document.getElementById('ovRate'); if(r && document.activeElement !== r) r.value = ovRate;
+  }
+  function renderOverview(){ document.getElementById('ovBody').innerHTML = overviewHtml(); }
+  function openOverview(){ syncOvControls(); renderOverview(); document.getElementById('summaryModal').hidden = false; }
   function closeOverview(){ document.getElementById('summaryModal').hidden = true; }
   document.getElementById('ovClose').addEventListener('click', closeOverview);
   document.getElementById('summaryModal').addEventListener('click', e => { if(e.target.id === 'summaryModal') closeOverview(); });
+  document.getElementById('ovCurToggle').addEventListener('click', e => {
+    const b = e.target.closest('[data-ovcur]'); if(!b) return;
+    ovCur = b.dataset.ovcur; try { localStorage.setItem('ffx_ovcur', ovCur); } catch(_){}
+    syncOvControls(); renderOverview();
+  });
+  document.getElementById('ovRate').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if(v>0){ ovRate = v; try { localStorage.setItem('ffx_rate', String(v)); } catch(_){} renderOverview(); }
+  });
 
   const expPanel = document.getElementById('panel-expense');
   expPanel.addEventListener('click', e => {
