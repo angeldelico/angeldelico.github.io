@@ -299,6 +299,12 @@
     color:var(--aqua-soft);font-family:inherit;font-weight:700;font-size:15px;
     padding:14px;border-radius:14px;cursor:pointer;
   }
+  .copy-list-btn{
+    width:100%;margin-top:8px;border:1px solid rgba(111,216,220,.35);
+    background:rgba(111,216,220,.1);color:var(--aqua);
+    font-family:inherit;font-weight:700;font-size:14px;
+    padding:12px;border-radius:12px;cursor:pointer;
+  }
   .add-item-form{
     margin-top:10px;background:var(--foam);border-radius:14px;padding:14px;display:grid;gap:9px;
     box-shadow:0 10px 30px rgba(4,14,24,.4);
@@ -446,6 +452,7 @@
 
 <div class="add-item-wrap">
   <button class="add-item-toggle" id="addItemToggle">＋ 新增物品</button>
+  <button class="copy-list-btn" id="copyListBtn">📋 複製這份清單（貼給 Claude）</button>
 </div>
 
 <footer>
@@ -1122,6 +1129,34 @@
     compressImage(f, 900, url => { if(!url){ toast('照片處理失敗'); return; } itemPhoto = url; showItemPhoto(); toast('照片已加入'); });
     e.target.value = '';
   });
+
+  // ---------- copy a person's list as plain text ----------
+  function personListText(p){
+    const lines = ['【' + p.name + ' 的購物清單】共 ' + p.items.length + ' 樣'];
+    p.items.forEach((it, i) => {
+      const parts = [ (i+1) + '. ' + stripTags(it.name) ];
+      if(it.price) parts.push('價格：' + stripTags(it.price) + (it.priceNote?('（'+stripTags(it.priceNote)+'）'):''));
+      const where = (it.where||[]).map(stripTags).filter(Boolean).join(' / ');
+      if(where) parts.push('在哪買：' + where);
+      if(it.meta) parts.push('備註：' + stripTags(it.meta));
+      if(it.link) parts.push('連結：' + it.link);
+      parts.push(it.bought ? '[已購]' : '[未購]');
+      lines.push(parts.join(' ｜ '));
+    });
+    return lines.join('\n');
+  }
+  async function copyCurrentList(){
+    const cp = currentPerson();
+    if(!cp || !cp.items.length){ toast('這份清單是空的'); return; }
+    const text = personListText(cp);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('已複製「' + cp.name + '」的清單，貼給 Claude 即可');
+    } catch(e){
+      window.prompt('無法自動複製，請手動全選複製：', text);
+    }
+  }
+  document.getElementById('copyListBtn').addEventListener('click', copyCurrentList);
 
   // jump from itinerary chip (matches item id or slug)
   function jumpToItem(ref){
