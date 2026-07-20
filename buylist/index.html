@@ -30,6 +30,7 @@
     min-height:100vh;
     color:var(--foam);
     padding:0 0 64px;
+    overflow-x:hidden;
   }
   /* header */
   header{padding:52px 24px 30px;text-align:center;position:relative;overflow:hidden}
@@ -176,7 +177,7 @@
   }
   .sthumb .ph{font-size:22px;filter:saturate(0)brightness(2.2);opacity:.9}
   .sthumb.loaded .ph{display:none}
-  .spot .name{color:var(--ink);text-decoration:none;flex:1;border-bottom:none;font-weight:500}
+  .spot .name{color:var(--ink);text-decoration:none;flex:1;min-width:0;overflow-wrap:anywhere;border-bottom:none;font-weight:500}
   .spot .name:hover{color:var(--deep)}
   .spot.skip{opacity:.7}
   .spot.skip .name{color:#93A2AB;text-decoration:line-through}
