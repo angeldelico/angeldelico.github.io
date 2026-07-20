@@ -801,7 +801,7 @@
   ];
 
   // ---------- utils ----------
-  const maps = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const maps = q => { const s = String(q||'').trim(); return /^https?:\/\//i.test(s) ? s : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s); };
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   let toastTimer = null;
   function toast(msg){ const t = document.getElementById('toast'); if(!t) return; t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2800); }
