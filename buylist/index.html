@@ -228,13 +228,20 @@
     font-size:12.5px;line-height:1.75;color:var(--aqua-soft);
   }
   /* per-day edit button in the title bar */
+  .seg-actions{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
   .seg-edit{
-    margin-left:auto;flex:none;align-self:center;
+    flex:none;align-self:center;
     border:none;cursor:pointer;font-family:inherit;font-weight:700;
     font-size:12px;letter-spacing:.04em;padding:6px 12px;border-radius:999px;
     background:rgba(234,246,247,.16);color:#fff;transition:background .2s;
   }
   .seg.editing .seg-edit{background:var(--gold);color:#2A2010}
+  .day-move{
+    border:none;background:rgba(234,246,247,.16);color:#fff;font-family:inherit;font-weight:700;
+    font-size:14px;width:30px;height:28px;border-radius:8px;cursor:pointer;
+  }
+  .day-move:disabled{opacity:.3;cursor:default}
+  .day-move:active:not(:disabled){transform:scale(.9)}
   /* drag handle */
   .drag-handle{
     display:none;flex:none;width:26px;height:46px;margin-left:-6px;
@@ -632,6 +639,8 @@
     <input type="text" id="spotSub" placeholder="例：扭蛋主場・兩款一次收">
     <label>Wikipedia 標題（有的話會自動抓縮圖，可選）</label>
     <input type="text" id="spotWiki" placeholder="例：姫路城">
+    <label>在哪一天（可移動到別天）</label>
+    <select id="spotDay"></select>
     <div class="modal-actions">
       <button type="button" id="spotSave">加入</button>
       <button type="button" id="spotCancel">取消</button>
@@ -922,7 +931,7 @@
   const tripEl = document.getElementById('trip');
 
   function render(){
-    tripEl.innerHTML = TRIP.map(seg => {
+    tripEl.innerHTML = TRIP.map((seg, si) => {
       const hotel = seg.hotelq
         ? (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + `<a class="hotel-link" href="${maps(seg.hotelq)}" target="_blank" rel="noopener">${esc(seg.hotel)}</a>`
         : (seg.src?`<span class="src">${esc(seg.src)}</span>`:'') + esc(seg.hotel);
@@ -950,7 +959,10 @@
       return `<div class="seg${editing?' editing':''}">
         <div class="seg-head">
           <span class="date">${esc(seg.date)}</span><span class="place">${esc(seg.place)}</span>
-          <button class="seg-edit" data-editday="${seg.id}">${editing?'✓ 完成':'✏️ 編輯'}</button>
+          <span class="seg-actions">
+            ${editing ? `<button class="day-move" data-daymove="up" data-dayid="${seg.id}" ${si===0?'disabled':''} title="與上一天互換行程">⬆︎</button><button class="day-move" data-daymove="down" data-dayid="${seg.id}" ${si===TRIP.length-1?'disabled':''} title="與下一天互換行程">⬇︎</button>` : ''}
+            <button class="seg-edit" data-editday="${seg.id}">${editing?'✓ 完成':'✏️ 編輯'}</button>
+          </span>
         </div>
         ${hotelLine}
         ${strip}
@@ -994,6 +1006,8 @@
     if(chip){ jumpToItem(chip.dataset.item); return; }
     const det = e.target.closest('[data-detail]');
     if(det){ openDetailModal(det.dataset.detail); return; }
+    const dm = e.target.closest('[data-daymove]');
+    if(dm){ swapDayContent(dm.dataset.dayid, dm.dataset.daymove==='up'?-1:1); return; }
     const eb = e.target.closest('[data-editday]');
     if(eb){ const id = eb.dataset.editday; if(editingDays.has(id)) editingDays.delete(id); else editingDays.add(id); render(); return; }
     const editBtn = e.target.closest('.ctrl.edit');
@@ -1018,6 +1032,26 @@
     const { error } = await sb.from('trip_spots').update(patch).eq('id', spotId);
     if(error){ handleWriteError(error); return false; }
     for(const d of TRIP){ const s = d.spots.find(x=>x.id===spotId); if(s){ Object.assign(s, patch); break; } }
+    render(); return true;
+  }
+  // update a spot's fields and optionally move it to another day (append to the end there)
+  async function updateSpotFull(spotId, fromDayId, patch, toDayId){
+    if(!await ensurePass()) return false;
+    const from = TRIP.find(d=>d.id===fromDayId);
+    const to = toDayId ? TRIP.find(d=>d.id===toDayId) : null;
+    const full = { ...patch };
+    if(to){
+      full.day_id = to.id;
+      full.position = to.spots.length ? Math.max(...to.spots.map(s=>s.position||0))+1 : 0;
+    }
+    const { error } = await sb.from('trip_spots').update(full).eq('id', spotId);
+    if(error){ handleWriteError(error); return false; }
+    if(to && from){
+      const idx = from.spots.findIndex(s=>s.id===spotId);
+      if(idx>=0){ const sp = from.spots.splice(idx,1)[0]; Object.assign(sp, patch, { day_id:to.id, position:full.position }); to.spots.push(sp); }
+    } else {
+      for(const d of TRIP){ const s = d.spots.find(x=>x.id===spotId); if(s){ Object.assign(s, patch); break; } }
+    }
     render(); return true;
   }
 
@@ -1090,6 +1124,28 @@
     day.spots.forEach((s,i)=>s.position=i);
     render();
     for(const s of day.spots){ const { error } = await sb.from('trip_spots').update({ position:s.position }).eq('id', s.id); if(error){ handleWriteError(error); break; } }
+  }
+
+  // swap the schedule/content between two adjacent days while keeping their date labels fixed
+  async function swapDayContent(dayId, dir){
+    const idx = TRIP.findIndex(d=>d.id===dayId); if(idx<0) return;
+    const j = idx + dir; if(j<0 || j>=TRIP.length) return;
+    if(!await ensurePass()) return;
+    const A = TRIP[idx], B = TRIP[j];
+    const contentA = { place:A.place, src:A.src, hotel:A.hotel, hotelq:A.hotelq, buystrip:A.buyStrip };
+    const contentB = { place:B.place, src:B.src, hotel:B.hotel, hotelq:B.hotelq, buystrip:B.buyStrip };
+    let r = await sb.from('trip_days').update(contentB).eq('id', A.id);
+    if(r.error) return handleWriteError(r.error);
+    r = await sb.from('trip_days').update(contentA).eq('id', B.id);
+    if(r.error) return handleWriteError(r.error);
+    for(const s of A.spots){ const { error } = await sb.from('trip_spots').update({ day_id:B.id }).eq('id', s.id); if(error) return handleWriteError(error); }
+    for(const s of B.spots){ const { error } = await sb.from('trip_spots').update({ day_id:A.id }).eq('id', s.id); if(error) return handleWriteError(error); }
+    const aSpots = A.spots, bSpots = B.spots;
+    A.spots = bSpots; A.spots.forEach(s=>s.day_id=A.id);
+    B.spots = aSpots; B.spots.forEach(s=>s.day_id=B.id);
+    A.place=contentB.place; A.src=contentB.src; A.hotel=contentB.hotel; A.hotelq=contentB.hotelq; A.buyStrip=contentB.buystrip;
+    B.place=contentA.place; B.src=contentA.src; B.hotel=contentA.hotel; B.hotelq=contentA.hotelq; B.buyStrip=contentA.buystrip;
+    render();
   }
 
   // drag & drop reorder (pointer events)
@@ -1432,6 +1488,9 @@
     document.getElementById('spotWiki').value = spot ? (spot.wiki||'') : '';
     document.getElementById('spotUrl').value  = '';
     document.getElementById('spotEmoji').value = '';
+    const daySel = document.getElementById('spotDay');
+    daySel.innerHTML = TRIP.map(d => `<option value="${d.id}">${esc(stripTags(d.date||'')+(d.place?' · '+stripTags(d.place):''))}</option>`).join('');
+    daySel.value = dayId;
     selectEmoji(spot ? (spot.emoji||'📍') : '📍');
     document.getElementById('spotModal').hidden = false;
     setTimeout(()=>document.getElementById('spotName').focus(), 60);
@@ -1446,8 +1505,15 @@
     const q = (document.getElementById('spotQ').value||'').trim() || name;
     const sub = (document.getElementById('spotSub').value||'').trim();
     const wiki = (document.getElementById('spotWiki').value||'').trim();
+    const targetDay = document.getElementById('spotDay').value || spotModalCtx.dayId;
     const payload = { name, q, wiki, emoji, sub };
-    const ok = spotModalCtx.spotId ? await updateSpot(spotModalCtx.spotId, payload) : await addSpot(spotModalCtx.dayId, payload);
+    let ok;
+    if(spotModalCtx.spotId){
+      const movedDay = targetDay && targetDay !== spotModalCtx.dayId ? targetDay : null;
+      ok = await updateSpotFull(spotModalCtx.spotId, spotModalCtx.dayId, payload, movedDay);
+    } else {
+      ok = await addSpot(targetDay, payload);
+    }
     if(ok !== false) closeSpotModal();
   }
   async function parseSpotLink(){
